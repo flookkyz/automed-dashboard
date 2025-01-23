@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  automed-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: automed-dashboard
+    ports:
+      - "3030:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
