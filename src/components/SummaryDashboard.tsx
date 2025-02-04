@@ -67,14 +67,19 @@ function SummaryDashboard({ products, date }: DashboardProps) {
         };
         fetchProduct();
     }, [products, date]);
+
     const doughnutOptions = {
         responsive: true,
         plugins: {
             legend: {
                 position: 'bottom' as const,
+                labels: {
+                    color: '#b9bab8', // Change this to your desired color
+                },
             },
             title: {
                 display: true,
+                color: '#b9bab8', // Change this to your desired color
             },
         },
     };

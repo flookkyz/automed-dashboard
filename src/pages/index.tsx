@@ -71,7 +71,7 @@ export default function Home() {
           <ul>
             {products?.map((product, index) => (
               <li key={index}>
-                <a className="block pt-4 p-2 border-b border-gray-600 border-b-2 hover:bg-gray-700 cursor-pointer" onClick={() => onSelectProduct(product)}>
+                <a className="block pt-4 p-2 border-b border-gray-600 dark:border-gray-400 border-b-2 hover:bg-gray-700 cursor-pointer" onClick={() => onSelectProduct(product)}>
                   {product}
                 </a>
               </li>
@@ -82,14 +82,17 @@ export default function Home() {
       <div className='ml-64'>
         <div className='flex items-center justify-between mb-4 p-4'>
           <p className='text-xl font-bold'>{selectedProduct ? selectedProduct : "Welcome To Dashbaord"}</p>
-          <div><label htmlFor="date" className="mr-2">Select Date:</label>
+          <div>
+            <label htmlFor="date" className="mr-2">Select Date:</label>
             <input
               type="date"
               id="date"
-              className="border border-gray-300 rounded-md p-2"
+              className="border border-gray-300 rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400"
               value={date.toISOString().split('T')[0]}
               onChange={(e) => setDate(new Date(e.target.value))}
-            /></div>
+              style={{ colorScheme: 'light dark' }}
+            />
+          </div>
         </div>
         {selectedProduct === '' ? <SummaryDashboard products={selectedProduct} date={date} /> : <Dashboard products={selectedProduct} date={date} />}
       </div>

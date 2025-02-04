@@ -35,7 +35,7 @@ export default async function handler(
         res.setHeader("Allow", ["POST"]);
         return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
-
+    console.log("Request body", req.body);
     const data: TestData = req.body;
     console.log(data);
     data.timestamp = new Date();

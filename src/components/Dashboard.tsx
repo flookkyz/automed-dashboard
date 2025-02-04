@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Swal from 'sweetalert2';
 import { Doughnut, Bar } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, ArcElement, BarElement, Title, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, ArcElement, BarElement, Title, Tooltip, Legend, Colors } from 'chart.js';
 
 ChartJS.register(CategoryScale, LinearScale, ArcElement, BarElement, Title, Tooltip, Legend);
 
@@ -130,7 +130,6 @@ function Dashboard({ products, date }: DashboardProps) {
             },
             title: {
                 display: true,
-                text: 'Test Results Distribution',
             },
         },
     };
@@ -143,7 +142,6 @@ function Dashboard({ products, date }: DashboardProps) {
             },
             title: {
                 display: true,
-                text: 'Test Results Overview',
             },
         },
         scales: {
@@ -189,12 +187,14 @@ function Dashboard({ products, date }: DashboardProps) {
                             </div>
                         </div>
                     </div>
-                    <div className="p-8 flex justify-center">
-                        <div className="flex w-2/3 h-96 items-center justify-between">
-                            <div className="w-1/2 h-full flex items-center justify-center">
+                    <div className="px-4 py-8 flex justify-center">
+                        <div className="flex w-3/4 h-96 items-center justify-between">
+                            <div className="w-1/2 h-full flex flex-col items-center justify-center">
+                                <p>Test Results Distribution</p>
                                 <Doughnut data={doughnutChartData} options={doughnutOptions} />
                             </div>
-                            <div className="w-3/4 h-full flex items-center justify-center">
+                            <div className="w-3/4 h-full ml-24 flex flex-col items-center justify-center">
+                                <p>Test Results Overview</p>
                                 <Bar data={barChartData} options={barOptions} />
                             </div>
                         </div>
@@ -208,14 +208,13 @@ function Dashboard({ products, date }: DashboardProps) {
                                     <th className="py-2">Fail</th>
                                     <th className="py-2">Error</th>
                                     <th className="py-2">Total</th>
-                                    <th className="py-2">Time</th>
+                                    <th className="py-2">Time(s)</th>
                                     <th className="py-2">Date</th>
-                                    <th className="py-2 w-20 pr-6">Action</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {product?.nametest?.map((data: NameTest, index: number) => (
-                                    <tr key={index} className="bg-gray-100 hover:bg-gray-200">
+                                    <tr key={index} className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-500 dark:hover:bg-gray-600">
                                         <td className="py-2 px-4">{data.name}</td>
                                         <td className="py-2 text-center">{data.pass}</td>
                                         {data.fail > 0 ? (<td className="py-2 text-center bg-[#f77575] cursor-pointer" onClick={() => onDetail("fail", data.detailfail, data.name)}> {data.fail}</td>)
@@ -227,11 +226,6 @@ function Dashboard({ products, date }: DashboardProps) {
                                         <td className="py-2 text-center">{data.pass + data.fail + data.error}</td>
                                         <td className="py-2 text-center">{data.time}</td>
                                         <td className="py-2 text-center">{product.date}</td>
-                                        <th className="py-2 flex justify-center w-20">
-                                            <svg className='w-6 h-8 mr-6 cursor-pointer hover:fill-red-600' xmlns="http://www.w3.org/2000/svg" x="0px" y="0px" width="100" height="100" viewBox="0 0 24 24" onClick={() => onDeleted(data.name)}>
-                                                <path d="M 10.806641 2 C 10.289641 2 9.7956875 2.2043125 9.4296875 2.5703125 L 9 3 L 4 3 A 1.0001 1.0001 0 1 0 4 5 L 20 5 A 1.0001 1.0001 0 1 0 20 3 L 15 3 L 14.570312 2.5703125 C 14.205312 2.2043125 13.710359 2 13.193359 2 L 10.806641 2 z M 4.3652344 7 L 5.8925781 20.263672 C 6.0245781 21.253672 6.877 22 7.875 22 L 16.123047 22 C 17.121047 22 17.974422 21.254859 18.107422 20.255859 L 19.634766 7 L 4.3652344 7 z"></path>
-                                            </svg>
-                                        </th>
                                     </tr>
                                 ))}
                             </tbody>
@@ -253,24 +247,34 @@ function Dashboard({ products, date }: DashboardProps) {
                     {
                         detailPopup && (
                             <div className="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-50 flex items-center justify-center">
-                                <div className="bg-white w-1/2 h-4/6 rounded-xl p-8 flex flex-col items-center justify-center">
+                                <div className="bg-white dark:bg-gray-500 dark:text-white w-2/3 h-4/6 rounded-xl p-8 flex flex-col items-center justify-center dark:text-black">
                                     <div className="text-xl text-center font-bold">{nameDetail}</div>
                                     <div className="text-xl text-center font-bold">{headerDetail} Detail</div>
-                                    <div className='w-full mt-6 h-96'>
+                                    <div className='w-full mt-6 h-96 '>
                                         <table className="w-full">
                                             <thead>
-                                                <tr className="bg-gray-800 text-white">
-                                                    <th className="py-2 px-4">Detail</th>
-                                                </tr>
+                                                {detailTest[0].name ? <tr className="bg-gray-800 text-white">
+                                                    <th className="py-2 px-4 w-1/2">name test</th>
+                                                    <th className="py-2 px-4 ">detail</th>
+                                                </tr> : <tr className="bg-gray-800 text-white">
+                                                    <th className="py-2 px-4">detail</th>
+                                                </tr>}
+
                                             </thead>
                                         </table>
                                         <div className="overflow-y-auto h-80">
                                             <table className="w-full">
                                                 <tbody>
                                                     {Array.isArray(detailTest) && detailTest.map((item: any, index: number) => (
-                                                        <tr key={index} className="bg-gray-100 hover:bg-gray-200">
-                                                            <td className="py-2 px-4">{item}</td>
-                                                        </tr>
+                                                        <>
+                                                            {item.name ? <tr key={index} className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-700 dark:text-black">
+                                                                <td className="py-2 px-4 w-1/2">{item.name.replace("Place Order Tests ›", "")}</td>
+                                                                <td className="py-2 px-4 border-l border-black">{item.error.split('Call log')[0]}<br />{item.error.split('Call log')[1] ? `Call log ${item.error.split('Call log')[1]}` : null}</td>
+                                                            </tr> : <tr key={index} className="bg-gray-100 hover:bg-gray-200 dark:text-black">
+                                                                <td className="py-2 px-4">{item}</td>
+                                                            </tr>}
+                                                        </>
+
                                                     ))}
                                                 </tbody>
                                             </table>
