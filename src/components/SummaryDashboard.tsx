@@ -102,7 +102,7 @@ function SummaryDashboard({ products, date }: DashboardProps) {
                             ],
                         };
                         return (
-                            <div key={index} className="w-5/6 h-96 p-4 flex flex-col items-center justify-center">
+                            <div key={index} className="w-[80%] h-96 p-4 flex flex-col items-center justify-center">
                                 <p className='font-bold text-xl'>{test.name}</p>
                                 <Doughnut data={doughnutChartData} options={doughnutOptions} />
                             </div>

@@ -9,6 +9,37 @@ export default function Home() {
   const [products, setProducts] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [date, setDate] = useState(new Date());
+  const [originalProducts, setOriginalProducts] = useState<any[]>([]);
+
+  let datetest = [
+    "2025-01-27",
+    "2025-01-28",
+    "2025-01-29",
+    "2025-01-30",
+    "2025-01-31",
+    "2025-02-04",
+    "2025-02-05",
+    "2025-02-06",
+    "2025-02-07",
+    "2025-02-10",
+    "2025-02-11",
+    "2025-02-13",
+    "2025-02-14",
+    "2025-02-17",
+    "2025-02-18",
+    "2025-02-19",
+    "2025-02-20",
+    "2025-02-24",
+    "2025-02-25",
+    "2025-02-26",
+    "2025-02-28",
+    "2025-03-03",
+    "2025-03-04",
+    "2025-03-05",
+    "2025-03-06",
+    "2025-03-07",
+    "2025-03-12"
+  ];
 
   const toggleMenu = () => {
     setIsOpen(!isOpen);
@@ -16,7 +47,8 @@ export default function Home() {
 
   const onSelectProduct = (product: any) => {
     setSelectedProduct(product);
-  }
+  };
+
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -26,7 +58,28 @@ export default function Home() {
           throw new Error('Network response was not ok');
         }
         const data = await response.json();
+        setProducts(data.collectionNames);
+        setOriginalProducts(data.collectionNames);
+        setProducts(data.collectionNames);
 
+      } catch (error: any) {
+        setError(error.message);
+      }
+    };
+
+    fetchProducts();
+  }, []);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch('/api/getproductname');
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        setProducts(data.collectionNames);
+        setOriginalProducts(data.collectionNames);
         setProducts(data.collectionNames);
 
       } catch (error: any) {
@@ -68,33 +121,42 @@ export default function Home() {
         <div
           className={`overflow-y-auto ${isOpen ? 'block' : 'hidden'}`}
         >
+          <div className='flex items-center justify-center mt-2'>
+          <input
+            type="text"
+            placeholder="Filter products"
+            className="w-[90%] p-2 mb-2 ring-0 border-0 rounded rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 focus:ring-blue-400 focus:border-transparent"
+            onChange={(e) => {
+              const filter = e.target.value.toLowerCase();
+              setProducts(
+                originalProducts.filter((product) =>
+                  product.toLowerCase().includes(filter)
+                )
+              );
+            }}
+          />
+          </div>
           <ul>
-            {products?.map((product, index) => (
-              <li key={index}>
-                <a className="block pt-4 p-2 border-b border-gray-600 dark:border-gray-400 border-b-2 hover:bg-gray-700 cursor-pointer" onClick={() => onSelectProduct(product)}>
-                  {product}
-                </a>
+            {products.length === 0 ? (
+              <li className="block pt-4 p-2 border-b border-gray-600 dark:border-gray-400 border-b-2">
+                No products available
               </li>
-            ))}
+            ) : (
+              products.map((product, index) => (
+                <li key={index}>
+                  <a className="block pt-4 p-2 border-b border-gray-600 dark:border-gray-400 border-b-2 hover:bg-gray-700 cursor-pointer"
+                    onClick={() => onSelectProduct(product)}
+                  >
+                    {product}
+                  </a>
+                </li>
+              ))
+            )}
           </ul>
         </div>
       </div>
       <div className='ml-64'>
-        <div className='flex items-center justify-between mb-4 p-4'>
-          <p className='text-xl font-bold'>{selectedProduct ? selectedProduct : "Welcome To Dashbaord"}</p>
-          <div>
-            <label htmlFor="date" className="mr-2">Select Date:</label>
-            <input
-              type="date"
-              id="date"
-              className="border border-gray-300 rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400"
-              value={date.toISOString().split('T')[0]}
-              onChange={(e) => setDate(new Date(e.target.value))}
-              style={{ colorScheme: 'light dark' }}
-            />
-          </div>
-        </div>
-        {selectedProduct === '' ? <SummaryDashboard products={selectedProduct} date={date} /> : <Dashboard products={selectedProduct} date={date} />}
+        {selectedProduct === '' ? <SummaryDashboard products={selectedProduct} date={date} /> : <Dashboard products={selectedProduct} />}
       </div>
     </>
   );
