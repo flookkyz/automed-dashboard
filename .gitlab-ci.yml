@@ -39,7 +39,8 @@ deploy:
       --env NODE_ENV=production
       --env MONGODB_URI=$MONGODB_URI
       --env MONGODB_DB=$MONGODB_DB
-      -p 3030:3000
+      -v /etc/localtime:/etc/localtime:ro
+      -p $EXPOSE_PORT:$PORT
       -d --name "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
