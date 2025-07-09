@@ -68,8 +68,8 @@ function navbar() {
                 >
                     <input
                         type="text"
-                        placeholder="Filter products"
-                        className="w-full p-2 mb-2 border border-gray-600 dark:border-gray-400 rounded"
+                        placeholder="Filter products "
+                        className="w-full  p-2 mb-2 border border-gray-600 dark:border-gray-400 rounded"
                         onChange={(e) => {
                             const filter = e.target.value.toLowerCase();
                             setProducts((prevProducts) =>
@@ -82,7 +82,7 @@ function navbar() {
                     <ul>
                         {products?.map((product, index) => (
                             <li key={index}>
-                                <a className="block pt-4 p-2 border-b border-gray-600 dark:border-gray-400 border-b-2 hover:bg-gray-700 cursor-pointer" href={`/${product}`}
+                                <a className="block  pt-4 p-2 border-b border-gray-600 dark:border-gray-400 border-b-2 hover:bg-gray-700 cursor-pointer" href={`/${product}`}
                                 // onClick={() => onSelectProduct(product)}
                                 >
                                     {product}

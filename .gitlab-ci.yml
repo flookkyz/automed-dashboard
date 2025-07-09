@@ -1,0 +1,37 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+  IMAGE_NAME: automed-dashboard
+  CONTAINER_NAME: automed-dashboard
+
+# Build และ Deploy เมื่อ push ไป master
+deploy_production:
+  stage: deploy
+  tags:
+    - automedtest-dashboard  # ใช้ runner ที่ชื่อ automedtest-dashboard
+  script:
+    # หยุด container เดิม (ถ้ามี)
+    - docker-compose down || true
+    
+    # เปลี่ยน tag ของ image เดิมเป็น previous (เก็บไว้เป็น backup)
+    - docker tag $IMAGE_NAME:latest $IMAGE_NAME:previous || true
+    
+    # สร้าง image ใหม่
+    - docker-compose build
+    
+    # รัน container ใหม่
+    - docker-compose up -d
+    
+    # ตรวจสอบสถานะ container
+    - docker-compose ps
+    
+    # ทำความสะอาด dangling images
+    - docker image prune -f
+  environment:
+    name: production
+  only:
+    - master
+  when: on_success

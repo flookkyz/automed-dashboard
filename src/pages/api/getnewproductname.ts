@@ -1,4 +1,3 @@
-// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from "next";
 import clientPromise from "../../lib/mongodb";
 
@@ -14,13 +13,10 @@ export default async function handler(
         try {
             const client = await clientPromise;
             const db = client.db("automedtest-dashboard");
-            const collections = await db.listCollections().toArray();
-            const collectionNames = collections
-                .filter((collection) => collection.name !== "product_name")
-                .map((collection) => collection.name)
-                .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+            // Exclude _id field
+            const products = await db.collection("product_name").find({}, { projection: { _id: 0 } }).toArray();
 
-            res.status(200).json({ collectionNames });
+            res.status(200).json({ products });
         } catch (error) {
             res.status(500).json({ error: 'Internal Server Error' });
         }
