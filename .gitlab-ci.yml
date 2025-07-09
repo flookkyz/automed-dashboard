@@ -13,6 +13,10 @@ deploy_production:
   tags:
     - automedtest-dashboard  # ใช้ runner ที่ชื่อ automedtest-dashboard
   script:
+    # ตรวจสอบว่า docker และ docker-compose พร้อมใช้งาน
+    - docker --version
+    - docker-compose --version
+    
     # หยุด container เดิม (ถ้ามี)
     - docker-compose down || true
     
