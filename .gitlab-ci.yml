@@ -3,39 +3,44 @@ stages:
   - deploy
 
 variables:
-  DOCKER_DRIVER: overlay2
-  IMAGE_NAME: automed-dashboard
-  CONTAINER_NAME: automed-dashboard
+  IMAGE_NAME: "automed-dashboard-ui"
 
-# Build และ Deploy เมื่อ push ไป master
-deploy_production:
-  stage: deploy
+build:
+  stage: build
+  image: docker:latest
   tags:
-    - automedtest-dashboard  # ใช้ runner ที่ชื่อ automedtest-dashboard
+    - automedtest-dashboard
   script:
-    # ตรวจสอบว่า docker และ docker-compose พร้อมใช้งาน
-    - docker --version
-    - docker-compose --version
-    
-    # หยุด container เดิม (ถ้ามี)
-    - docker-compose down || true
-    
-    # เปลี่ยน tag ของ image เดิมเป็น previous (เก็บไว้เป็น backup)
-    - docker tag $IMAGE_NAME:latest $IMAGE_NAME:previous || true
-    
-    # สร้าง image ใหม่
-    - docker-compose build
-    
-    # รัน container ใหม่
-    - docker-compose up -d
-    
-    # ตรวจสอบสถานะ container
-    - docker-compose ps
-    
-    # ทำความสะอาด dangling images
-    - docker image prune -f
-  environment:
-    name: production
-  only:
-    - master
-  when: on_success
+    - |
+      if [ -n "$(docker images -q ${IMAGE_NAME}:latest)" ]; then
+        echo "Tagging ${IMAGE_NAME}:latest as ${IMAGE_NAME}:previous"
+        docker rmi --force "${IMAGE_NAME}:previous"
+        docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:previous"
+        docker rmi --force "${IMAGE_NAME}:latest"
+      else
+        echo "No ${IMAGE_NAME}:latest found."
+      fi
+    - docker build -t "${IMAGE_NAME}:latest" .
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"' 
+
+deploy:
+  stage: deploy
+  image: docker:latest
+  tags:
+    - automedtest-dashboard
+  script:
+    - echo "${IMAGE_NAME}"
+    - if [ "$(docker ps -aq -f name=${IMAGE_NAME})" ]; then
+        echo "Stopping and removing container ${IMAGE_NAME}...";
+        docker stop "${IMAGE_NAME}" && docker rm "${IMAGE_NAME}";
+      fi
+    - docker run 
+      --env NODE_ENV=production
+      --env MONGODB_URI=mongodb://admin:password@10.22.26.77:27017/automedtest-dashboard
+      --env MONGODB_DB=automedtest-dashboard
+      -p 3030:3000
+      -d --name "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"' 
+
