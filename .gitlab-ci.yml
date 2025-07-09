@@ -22,7 +22,7 @@ build:
       fi
     - docker build -t "${IMAGE_NAME}:latest" .
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"' 
+    - if: '$CI_COMMIT_BRANCH == "master"'
 
 deploy:
   stage: deploy
@@ -32,15 +32,14 @@ deploy:
   script:
     - echo "${IMAGE_NAME}"
     - if [ "$(docker ps -aq -f name=${IMAGE_NAME})" ]; then
-        echo "Stopping and removing container ${IMAGE_NAME}...";
-        docker stop "${IMAGE_NAME}" && docker rm "${IMAGE_NAME}";
+      echo "Stopping and removing container ${IMAGE_NAME}...";
+      docker stop "${IMAGE_NAME}" && docker rm "${IMAGE_NAME}";
       fi
-    - docker run 
+    - docker run
       --env NODE_ENV=production
-      --env MONGODB_URI=mongodb://admin:password@10.22.26.77:27017/automedtest-dashboard
-      --env MONGODB_DB=automedtest-dashboard
+      --env MONGODB_URI=$MONGODB_URI
+      --env MONGODB_DB=$MONGODB_DB
       -p 3030:3000
       -d --name "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"' 
-
+    - if: '$CI_COMMIT_BRANCH == "master"'
