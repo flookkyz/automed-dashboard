@@ -52,7 +52,11 @@ export default function Home() {
       <div className="fixed left-0 top-0 w-64 h-screen bg-gray-800 text-white overflow-y-auto">
         <div className="p-4">
           <h1
-            className="text-2xl font-bold cursor-pointer"
+            className={`text-2xl font-bold cursor-pointer p-2 rounded ${
+              selectedProduct === "" 
+                ? "bg-gray-600 text-blue-300" 
+                : "hover:bg-gray-700"
+            }`}
             onClick={() => onSelectProduct("")}
           >
             Dashboard
@@ -103,7 +107,11 @@ export default function Home() {
                   <React.Fragment key={index}>
                     <li>
                       <div
-                        className="flex items-center justify-between block pt-4 p-2 border-b-2 border-gray-600 dark:border-gray-600 hover:bg-gray-700 cursor-pointer"
+                        className={`flex items-center justify-between block pt-4 p-2 border-b-2 border-gray-600 dark:border-gray-600 cursor-pointer ${
+                          selectedProduct === product.mainProduct
+                            ? "bg-gray-600 text-blue-300"
+                            : "hover:bg-gray-700"
+                        }`}
                         onClick={() => handleToggleSub(index)}
                       >
                         <span>{product.mainProduct}</span>
@@ -133,7 +141,11 @@ export default function Home() {
                         (subProduct: any, subIndex: any) => (
                           <li key={`${index}-${subIndex}`}>
                             <a
-                              className="block pl-8 pt-2 p-2 border-b border-gray-600 dark:border-gray-600 hover:bg-gray-700 cursor-pointer"
+                              className={`block pl-8 pt-2 p-2 border-b border-gray-600 dark:border-gray-600 cursor-pointer ${
+                                selectedProduct === subProduct
+                                  ? "bg-gray-600 text-blue-300"
+                                  : "hover:bg-gray-700"
+                              }`}
                               onClick={() => onSelectProduct(subProduct)}
                             >
                               {subProduct}

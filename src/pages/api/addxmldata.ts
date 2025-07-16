@@ -44,10 +44,11 @@ export default async function handler(
       return res.status(400).json({ error: "Error parsing the form data" });
     }
 
-    if (!fields.nameproduct) {
-      return res.status(400).json({ error: "Invalid or missing nameproduct" });
+    if (!fields.mainproduct || !fields.subproduct) {
+      return res.status(400).json({ error: "Invalid or missing mainproduct or subproduct" });
     }
-    const reqnameproduct = fields.nameproduct;
+    const reqmainproduct = fields.mainproduct;
+    const reqsubproduct = fields.subproduct;
     const file = files.file ? (files.file[0] as formidable.File) : null;
 
     if (!file) {
@@ -127,7 +128,8 @@ export default async function handler(
           }
         );
         const datatosaveindb = {
-          nameproduct: String(reqnameproduct),
+          mainproduct: String(reqmainproduct),
+          subproduct: String(reqsubproduct),
           nametest: datafromxml,
         };
         // console.log("datafromxml", datatosaveindb);
@@ -136,8 +138,36 @@ export default async function handler(
 
         const nowdate = new Date().toISOString().split("T")[0];
         const db = client.db("automedtest-dashboard");
+        
+        // Update product_name collection (same logic as addjsondata)
+        const productNameCollection = db.collection("product_name");
+        const existingMainProduct = await productNameCollection.findOne({
+          mainProduct: String(reqmainproduct),
+        });
+
+        if (existingMainProduct) {
+          // Check if subProduct already exists in the array
+          const subProductExists =
+            Array.isArray(existingMainProduct.subProduct) &&
+            existingMainProduct.subProduct.includes(String(reqsubproduct));
+
+          if (!subProductExists) {
+            // Add subProduct to existing mainProduct (only if not duplicate)
+            await productNameCollection.updateOne(
+              { mainProduct: String(reqmainproduct) },
+              { $addToSet: { subProduct: String(reqsubproduct) } }
+            );
+          }
+        } else {
+          // Create new mainProduct with subProduct array
+          await productNameCollection.insertOne({
+            mainProduct: String(reqmainproduct),
+            subProduct: [String(reqsubproduct)],
+          });
+        }
+
         const existingDoc = await db
-          .collection(String(reqnameproduct))
+          .collection(String(reqsubproduct))
           .findOne({ date: nowdate });
 
         if (existingDoc) {
@@ -163,18 +193,18 @@ export default async function handler(
           datatosaveindb.nametest = mergedTests;
         }
 
-        const { nametest } = datatosaveindb;
-        const dataWithoutNameproduct = { nametest };
+        const { mainproduct, subproduct, nametest } = datatosaveindb;
+        const dataWithoutMainproduct = { mainproduct, nametest };
 
-        await db.collection(datatosaveindb.nameproduct).updateOne(
+        await db.collection(subproduct).updateOne(
           { date: nowdate }, // Filter by date
-          { $set: dataWithoutNameproduct }, // Update the document
+          { $set: dataWithoutMainproduct }, // Update the document
           { upsert: true } // Insert if not exists
         );
 
         ////////////////////////////////////////////////////////////
         return res.status(200).json({
-          message: "Data saved successfully in product " + reqnameproduct,
+          message: "Data saved successfully in product " + reqsubproduct,
         });
         // return res.status(200).json({
         //   // message: result.testsuites.testsuite[2].testcase[0].failure[0]._,
