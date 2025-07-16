@@ -27,6 +27,7 @@ ChartJS.register(
 
 interface DashboardProps {
   products: string;
+  onSelectProduct: (product: string) => void;
 }
 
 interface NameTest {
@@ -39,77 +40,81 @@ interface NameTest {
   detailerror: object[];
 }
 
-function SummaryDashboard({ products }: DashboardProps) {
+function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
   const [error, setError] = useState<string | null>(null);
   const [sumresult, setSumresult] = useState<
     { pass: number; fail: number; error: number; name: string }[]
   >([]);
   const [startDate, setStartDate] = useState<Date | null>(new Date());
 
-useEffect(() => {
+  useEffect(() => {
     const fetchProduct = async () => {
-        try {
-            if (!startDate) {
-                throw new Error("Start date is not selected");
-            }
-            const response = await fetch(
-                `/api/getsummary?date=${startDate.toISOString().split("T")[0]}`
-            );
-            if (!response.ok) {
-                throw new Error("Network response was not ok");
-            }
-            const data = await response.json();
-            console.log("data", data);
-
-            let finaldata: { key: string; value: any }[] = [];
-            Object.keys(data).forEach(function (key, index) {
-                let newdata = { key: key, value: data[key] };
-                if (newdata.value) {
-                    finaldata.push(newdata);
-                }
-            });
-            console.log("finaldata", finaldata);
-
-            let sumresult: { pass: number; fail: number; error: number; name: string }[] = [];
-            if (finaldata.length === 0) {
-                sumresult.push({ pass: 0, fail: 0, error: 0, name: "nodata" });
-            } else {
-                finaldata.forEach((item) => {
-                    console.log("item", item.key);
-                    const sum = item?.value.nametest.reduce(
-                        (
-                            acc: { pass: number; fail: number; error: number },
-                            curr: NameTest
-                        ) => ({
-                            pass: acc.pass + curr.pass,
-                            fail: acc.fail + curr.fail,
-                            error: acc.error + curr.error,
-                            name: item.key,
-                        }),
-                        { pass: 0, fail: 0, error: 0, name: "" }
-                    );
-                    sumresult.push(sum);
-                });
-                sumresult.sort((a, b) => a.name.localeCompare(b.name));
-            }
-            setSumresult(sumresult);
-            console.log("sumresult", sumresult);
-
-        } catch (error) {
-            if (error instanceof Error) {
-                setError(error.message);
-            } else {
-                setError(String(error));
-            }
-            Swal.fire({
-                icon: "error",
-                title: "Oops...",
-                text: (error as Error).message,
-            });
+      try {
+        if (!startDate) {
+          throw new Error("Start date is not selected");
         }
+        const response = await fetch(
+          `/api/getsummary?date=${startDate.toISOString().split("T")[0]}`
+        );
+        if (!response.ok) {
+          throw new Error("Network response was not ok");
+        }
+        const data = await response.json();
+        console.log("data", data);
+
+        let finaldata: { key: string; value: any }[] = [];
+        Object.keys(data).forEach(function (key, index) {
+          let newdata = { key: key, value: data[key] };
+          if (newdata.value) {
+            finaldata.push(newdata);
+          }
+        });
+        console.log("finaldata", finaldata);
+
+        let sumresult: {
+          pass: number;
+          fail: number;
+          error: number;
+          name: string;
+        }[] = [];
+        if (finaldata.length === 0) {
+          sumresult.push({ pass: 0, fail: 0, error: 0, name: "nodata" });
+        } else {
+          finaldata.forEach((item) => {
+            console.log("item", item.key);
+            const sum = item?.value.nametest.reduce(
+              (
+                acc: { pass: number; fail: number; error: number },
+                curr: NameTest
+              ) => ({
+                pass: acc.pass + curr.pass,
+                fail: acc.fail + curr.fail,
+                error: acc.error + curr.error,
+                name: item.key,
+              }),
+              { pass: 0, fail: 0, error: 0, name: "" }
+            );
+            sumresult.push(sum);
+          });
+          sumresult.sort((a, b) => a.name.localeCompare(b.name));
+        }
+        setSumresult(sumresult);
+        console.log("sumresult", sumresult);
+      } catch (error) {
+        if (error instanceof Error) {
+          setError(error.message);
+        } else {
+          setError(String(error));
+        }
+        Swal.fire({
+          icon: "error",
+          title: "Oops...",
+          text: (error as Error).message,
+        });
+      }
     };
     fetchProduct();
-}, [products, startDate]);
+  }, [products, startDate]);
 
   const doughnutOptions = {
     responsive: true,
@@ -160,10 +165,14 @@ useEffect(() => {
               return (
                 <div
                   key={index}
-                  className="w-[80%] h-96 p-4 flex flex-col items-center justify-center"
+                  className="w-[80%] h-96 p-4 flex flex-col items-center justify-center cursor-pointer"
+                  onClick={() => onSelectProduct(test.name)}
                 >
                   <p className="font-bold text-xl">{test.name}</p>
-                  <Doughnut data={doughnutChartData} options={doughnutOptions} />
+                  <Doughnut
+                    data={doughnutChartData}
+                    options={doughnutOptions}
+                  />
                 </div>
               );
             })

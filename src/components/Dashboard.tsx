@@ -49,6 +49,7 @@ function Dashboard({ products }: DashboardProps) {
   const [data, setData] = useState<any[]>([]);
   const [sortKey, setSortKey] = useState<string>("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [filterText, setFilterText] = useState<string>("");
 
   const sum = product?.nametest?.reduce(
     (acc: { pass: number; fail: number; error: number }, curr: NameTest) => ({
@@ -76,18 +77,22 @@ function Dashboard({ products }: DashboardProps) {
   };
 
   const sortedNametest = product?.nametest
-    ? [...product.nametest].sort((a: any, b: any) => {
-        let aValue = a[sortKey];
-        let bValue = b[sortKey];
-        // ถ้าเป็น string ให้เปรียบเทียบแบบ localeCompare
-        if (typeof aValue === "string" && typeof bValue === "string") {
-          return sortOrder === "asc"
-            ? aValue.localeCompare(bValue)
-            : bValue.localeCompare(aValue);
-        }
-        // ถ้าเป็น number ให้เปรียบเทียบแบบตัวเลข
-        return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
-      })
+    ? [...product.nametest]
+        .filter((item: NameTest) =>
+          item.name.toLowerCase().includes(filterText.toLowerCase())
+        )
+        .sort((a: any, b: any) => {
+          let aValue = a[sortKey];
+          let bValue = b[sortKey];
+          // ถ้าเป็น string ให้เปรียบเทียบแบบ localeCompare
+          if (typeof aValue === "string" && typeof bValue === "string") {
+            return sortOrder === "asc"
+              ? aValue.localeCompare(bValue)
+              : bValue.localeCompare(aValue);
+          }
+          // ถ้าเป็น number ให้เปรียบเทียบแบบตัวเลข
+          return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
+        })
     : [];
 
   useEffect(() => {
@@ -214,12 +219,12 @@ function Dashboard({ products }: DashboardProps) {
           <p className="text-xl font-bold">
             {products ? products : "Welcome To Dashbaord"}
           </p>
-            <div className="flex items-center justify-end">
+          <div className="flex items-center justify-end">
             <label className="mr-2">Select Date : </label>
             <DatePicker
               selected={startDate}
               onChange={(date) => {
-              setStartDate(date);
+                setStartDate(date);
               }}
               includeDates={data}
               placeholderText="This only includes today and tomorrow"
@@ -259,6 +264,21 @@ function Dashboard({ products }: DashboardProps) {
         </div>
       </div>
       <div className="p-8">
+        <div className="mb-4 flex justify-between items-center flex-col">
+          <h2 className="text-xl font-bold justify-start w-full mb-4">
+            Test Results Table
+          </h2>
+          <div className="flex items-center justify-start w-full">
+            <label className="mr-2 font-medium">Filter by Name Test :</label>
+            <input
+              type="text"
+              placeholder="Search Name Test..."
+              value={filterText}
+              onChange={(e) => setFilterText(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2 w-64 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
         <table className="w-full mt-6 font-bold">
           <thead>
             <tr className="bg-gray-800 text-white">

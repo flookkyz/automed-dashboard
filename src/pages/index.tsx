@@ -52,11 +52,7 @@ export default function Home() {
       <div className="fixed left-0 top-0 w-64 h-screen bg-gray-800 text-white overflow-y-auto">
         <div className="p-4">
           <h1
-            className={`text-2xl font-bold cursor-pointer p-2 rounded ${
-              selectedProduct === "" 
-                ? "bg-gray-600 text-blue-300" 
-                : "hover:bg-gray-700"
-            }`}
+            className={`text-2xl font-bold cursor-pointer p-2 rounded`}
             onClick={() => onSelectProduct("")}
           >
             Dashboard
@@ -162,7 +158,7 @@ export default function Home() {
       </div>
       <div className="ml-64">
         {selectedProduct === "" ? (
-          <SummaryDashboard products={selectedProduct} />
+          <SummaryDashboard products={selectedProduct} onSelectProduct={onSelectProduct} />
         ) : (
           <Dashboard products={selectedProduct} />
         )}
