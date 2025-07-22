@@ -13,7 +13,7 @@ import {
 } from "chart.js";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { log } from "console";
+import { useRouter } from "next/router";
 
 ChartJS.register(
   CategoryScale,
@@ -46,6 +46,11 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
     { pass: number; fail: number; error: number; name: string }[]
   >([]);
   const [startDate, setStartDate] = useState<Date | null>(new Date());
+  const router = useRouter();
+
+  const handleProductClick = (productName: string) => {
+    router.push(`/${productName}`);
+  };
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -118,6 +123,16 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
 
   const doughnutOptions = {
     responsive: true,
+    onClick: (event: any, elements: any) => {
+      if (elements && elements.length > 0) {
+        // Get the product name from the chart context
+        const chart = event.chart;
+        const productName = chart.canvas.getAttribute('data-product-name');
+        if (productName) {
+          handleProductClick(productName);
+        }
+      }
+    },
     plugins: {
       legend: {
         position: "bottom" as const,
@@ -135,7 +150,7 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
   return (
     <>
       <div className="p-4">
-        <div className="flex items-center justify-end">
+        <div className="flex items-center justify-end mb-2">
           <label className="mr-2">Select Date : </label>
           <DatePicker
             selected={startDate}
@@ -162,17 +177,29 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
                   },
                 ],
               };
+              
+              const chartOptions = {
+                ...doughnutOptions,
+                onClick: (event: any, elements: any) => {
+                  handleProductClick(test.name);
+                }
+              };
+
               return (
                 <div
                   key={index}
-                  className="w-[80%] h-96 p-4 flex flex-col items-center justify-center cursor-pointer"
-                  onClick={() => onSelectProduct(test.name)}
+                  className="w-full h-[100%] flex flex-col items-center justify-center mb-6"
                 >
                   <p className="font-bold text-xl">{test.name}</p>
-                  <Doughnut
-                    data={doughnutChartData}
-                    options={doughnutOptions}
-                  />
+                  <div 
+                    className="cursor-pointer hover:opacity-80 transition-opacity w-[350px] h-[350px]"
+                    onClick={() => handleProductClick(test.name)}
+                  >
+                    <Doughnut
+                      data={doughnutChartData}
+                      options={chartOptions}
+                    />
+                  </div>
                 </div>
               );
             })

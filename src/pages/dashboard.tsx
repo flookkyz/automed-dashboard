@@ -1,13 +1,8 @@
-"use client";
-import React, { useEffect } from "react";
-import { useRouter } from "next/router";
+import React from "react";
 import Navbar from "../components/navbar";
 import SummaryDashboard from "../components/SummaryDashboard";
 
-export default function Home() {
-  const router = useRouter();
-
-  // Redirect to dashboard page or handle main dashboard logic here
+const MainDashboard = () => {
   const onSelectProduct = (product: string) => {
     // This will be handled by the navbar component's routing
   };
@@ -22,4 +17,6 @@ export default function Home() {
       </div>
     </>
   );
-}
+};
+
+export default MainDashboard;
