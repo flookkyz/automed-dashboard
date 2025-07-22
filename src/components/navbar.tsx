@@ -8,6 +8,7 @@ function navbar() {
     const [originalNewProducts, setOriginalNewProducts] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [openIndexes, setOpenIndexes] = useState<{ [key: number]: boolean }>({});
+    const [productFailStatus, setProductFailStatus] = useState<{ [key: string]: boolean }>({});
     const router = useRouter();
 
     const handleToggleSub = (idx: number) => {
@@ -37,6 +38,9 @@ function navbar() {
                 console.log("Fetching new products from API", data);
                 setNewProducts(data.products);
                 setOriginalNewProducts(data.products);
+                
+                // Fetch fail status for all products
+                await fetchProductFailStatus(data.products);
             } catch (error: any) {
                 setError(error.message);
             }
@@ -44,6 +48,51 @@ function navbar() {
 
         fetchNewProducts();
     }, []);
+
+    const fetchProductFailStatus = async (products: any[]) => {
+        const today = new Date().toISOString().split('T')[0];
+        const failStatus: { [key: string]: boolean } = {};
+        
+        try {
+            // Check main products
+            for (const product of products) {
+                if (product.mainProduct) {
+                    try {
+                        const response = await fetch(`/api/gettestdata?nameproduct=${product.mainProduct}&date=${today}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            const hasFail = data.nametest?.some((test: any) => test.fail > 0) || false;
+                            failStatus[product.mainProduct] = hasFail;
+                        }
+                    } catch (error) {
+                        console.log(`Error checking ${product.mainProduct}:`, error);
+                        failStatus[product.mainProduct] = false;
+                    }
+                }
+                
+                // Check sub products
+                if (product.subProduct) {
+                    for (const subProduct of product.subProduct) {
+                        try {
+                            const response = await fetch(`/api/gettestdata?nameproduct=${subProduct}&date=${today}`);
+                            if (response.ok) {
+                                const data = await response.json();
+                                const hasFail = data.nametest?.some((test: any) => test.fail > 0) || false;
+                                failStatus[subProduct] = hasFail;
+                            }
+                        } catch (error) {
+                            console.log(`Error checking ${subProduct}:`, error);
+                            failStatus[subProduct] = false;
+                        }
+                    }
+                }
+            }
+            
+            setProductFailStatus(failStatus);
+        } catch (error) {
+            console.log('Error fetching product fail status:', error);
+        }
+    };
 
     // Set selected product based on current route
     useEffect(() => {
@@ -106,6 +155,16 @@ function navbar() {
                         ) : (
                             newProducts.map((product, index) => {
                                 const isOpenSub = openIndexes[index] || false;
+                                const mainProductHasFail = productFailStatus[product.mainProduct] || false;
+                                
+                                // Check if any sub-products have fails
+                                const hasSubProductFail = product.subProduct?.some((sub: string) => 
+                                    productFailStatus[sub] || false
+                                ) || false;
+                                
+                                // Main product should be red if it has fails OR any sub-product has fails
+                                const shouldShowRed = mainProductHasFail || hasSubProductFail;
+                                
                                 return (
                                     <React.Fragment key={index}>
                                         <li>
@@ -113,11 +172,16 @@ function navbar() {
                                                 className={`flex items-center justify-between block pt-4 p-2 border-b-2 border-gray-600 dark:border-gray-600 cursor-pointer ${
                                                     selectedProduct === product.mainProduct
                                                         ? "bg-gray-600 text-blue-300"
+                                                        : shouldShowRed
+                                                        ? "hover:bg-red-700 bg-red-600"
                                                         : "hover:bg-gray-700"
                                                 }`}
                                                 onClick={() => handleToggleSub(index)}
                                             >
-                                                <span>{product.mainProduct}</span>
+                                                <span className={shouldShowRed ? "text-red-200" : ""}>
+                                                    {shouldShowRed && "⚠️ "}
+                                                    {product.mainProduct}
+                                                </span>
                                                 {product.subProduct &&
                                                     product.subProduct.length > 0 && (
                                                         <svg
@@ -141,20 +205,27 @@ function navbar() {
                                         {product.subProduct &&
                                             isOpenSub &&
                                             product.subProduct.map(
-                                                (subProduct: any, subIndex: any) => (
-                                                    <li key={`${index}-${subIndex}`}>
-                                                        <a
-                                                            className={`block pl-8 pt-2 p-2 border-b border-gray-600 dark:border-gray-600 cursor-pointer ${
-                                                                selectedProduct === subProduct
-                                                                    ? "bg-gray-600 text-blue-300"
-                                                                    : "hover:bg-gray-700"
-                                                            }`}
-                                                            onClick={() => onSelectProduct(subProduct)}
-                                                        >
-                                                            {subProduct}
-                                                        </a>
-                                                    </li>
-                                                )
+                                                (subProduct: any, subIndex: any) => {
+                                                    const subProductHasFail = productFailStatus[subProduct] || false;
+                                                    
+                                                    return (
+                                                        <li key={`${index}-${subIndex}`}>
+                                                            <a
+                                                                className={`block pl-8 pt-2 p-2 border-b border-gray-600 dark:border-gray-600 cursor-pointer ${
+                                                                    selectedProduct === subProduct
+                                                                        ? "bg-gray-600 text-blue-300"
+                                                                        : subProductHasFail
+                                                                        ? "hover:bg-red-700 bg-red-600 text-red-200"
+                                                                        : "hover:bg-gray-700"
+                                                                }`}
+                                                                onClick={() => onSelectProduct(subProduct)}
+                                                            >
+                                                                {subProductHasFail && "⚠️ "}
+                                                                {subProduct}
+                                                            </a>
+                                                        </li>
+                                                    );
+                                                }
                                             )}
                                     </React.Fragment>
                                 );

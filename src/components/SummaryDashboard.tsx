@@ -46,6 +46,7 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
     { pass: number; fail: number; error: number; name: string }[]
   >([]);
   const [startDate, setStartDate] = useState<Date | null>(new Date());
+  const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
 
   const handleProductClick = (productName: string) => {
@@ -53,11 +54,18 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
   };
 
   useEffect(() => {
+    let isMounted = true; // Flag to prevent state updates if component unmounts
+    
     const fetchProduct = async () => {
+      if (loading) return; // Prevent multiple simultaneous calls
+      
       try {
         if (!startDate) {
           throw new Error("Start date is not selected");
         }
+        
+        setLoading(true);
+        setError(null);
         const response = await fetch(
           `/api/getsummary?date=${startDate.toISOString().split("T")[0]}`
         );
@@ -103,9 +111,14 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
           });
           sumresult.sort((a, b) => a.name.localeCompare(b.name));
         }
+        
+        if (!isMounted) return; // Don't update state if component unmounted
+        
         setSumresult(sumresult);
         console.log("sumresult", sumresult);
       } catch (error) {
+        if (!isMounted) return; // Don't update state if component unmounted
+        
         if (error instanceof Error) {
           setError(error.message);
         } else {
@@ -116,10 +129,20 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
           title: "Oops...",
           text: (error as Error).message,
         });
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
+    
     fetchProduct();
-  }, [products, startDate]);
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [products, startDate]); // Remove startDate dependency if causing issues
 
   const doughnutOptions = {
     responsive: true,
