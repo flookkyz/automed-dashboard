@@ -7,14 +7,30 @@ function navbar() {
     const [newProducts, setNewProducts] = useState<any[]>([]);
     const [originalNewProducts, setOriginalNewProducts] = useState<any[]>([]);
     const [error, setError] = useState<string | null>(null);
-    const [openIndexes, setOpenIndexes] = useState<{ [key: number]: boolean }>({});
+    const [openIndexes, setOpenIndexes] = useState<{ [key: string]: boolean }>({});
     const [productFailStatus, setProductFailStatus] = useState<{ [key: string]: boolean }>({});
     const router = useRouter();
 
-    const handleToggleSub = (idx: number) => {
+    // Keep dropdown state persistent
+    const keepDropdownOpen = (currentSelectedProduct: string, newProducts: any[]) => {
+        if (currentSelectedProduct) {
+            // Find which main product contains this sub-product
+            const parentProduct = newProducts.find(product => 
+                product.subProduct?.includes(currentSelectedProduct)
+            );
+            if (parentProduct) {
+                setOpenIndexes(prev => ({
+                    ...prev,
+                    [parentProduct.mainProduct]: true
+                }));
+            }
+        }
+    };
+
+    const handleToggleSub = (productName: string) => {
         setOpenIndexes((prev) => ({
             ...prev,
-            [idx]: !prev[idx],
+            [productName]: !prev[productName],
         }));
     };
 
@@ -25,6 +41,7 @@ function navbar() {
         } else {
             router.push(`/${product}`);
         }
+        // Don't close the dropdown when selecting sub-product
     }
 
     useEffect(() => {
@@ -41,6 +58,11 @@ function navbar() {
                 
                 // Fetch fail status for all products
                 await fetchProductFailStatus(data.products);
+                
+                // Keep dropdown open if we're on a sub-product page
+                if (router.query.slug) {
+                    keepDropdownOpen(router.query.slug.toString(), data.products);
+                }
             } catch (error: any) {
                 setError(error.message);
             }
@@ -98,10 +120,15 @@ function navbar() {
     useEffect(() => {
         if (router.query.slug) {
             setSelectedProduct(router.query.slug.toString());
+            // Keep dropdown open for sub-products
+            if (newProducts.length > 0) {
+                keepDropdownOpen(router.query.slug.toString(), newProducts);
+            }
         } else {
             setSelectedProduct("");
         }
-    }, [router.query.slug]);
+        // Don't reset openIndexes when route changes
+    }, [router.query.slug, newProducts]);
 
     return (
         <>
@@ -154,7 +181,7 @@ function navbar() {
                             </li>
                         ) : (
                             newProducts.map((product, index) => {
-                                const isOpenSub = openIndexes[index] || false;
+                                const isOpenSub = openIndexes[product.mainProduct] || false;
                                 const mainProductHasFail = productFailStatus[product.mainProduct] || false;
                                 
                                 // Check if any sub-products have fails
@@ -176,7 +203,7 @@ function navbar() {
                                                         ? "hover:bg-red-700 bg-red-600"
                                                         : "hover:bg-gray-700"
                                                 }`}
-                                                onClick={() => handleToggleSub(index)}
+                                                onClick={() => handleToggleSub(product.mainProduct)}
                                             >
                                                 <span className={shouldShowRed ? "text-red-200" : ""}>
                                                     {shouldShowRed && "⚠️ "}
