@@ -146,7 +146,7 @@ function navbar() {
                         <input
                             type="text"
                             placeholder="Filter products"
-                            className="w-[90%] p-2 mb-2 ring-0 border-0 rounded rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 focus:ring-blue-400 focus:border-transparent"
+                            className="w-[90%] p-2 mb-2 ring-0 border-0 rounded rounded-md p-2 bg-white text-black dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 focus:ring-blue-400 focus:border-transparent"
                             onChange={(e) => {
                                 const filter = e.target.value.toLowerCase();
                                 setNewProducts(
