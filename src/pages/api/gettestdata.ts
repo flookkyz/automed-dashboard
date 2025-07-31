@@ -10,7 +10,7 @@ export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse<Data>
 ) {
-    const { nameproduct, date } = req.query;
+    const { mainproduct, subproduct, date } = req.query;
 
     if (!date) {
         return res.status(400).json({ error: "Missing date parameter" });
@@ -28,13 +28,13 @@ export default async function handler(
         const db = client.db("automedtest-dashboard");
         let data;
 
-        if (nameproduct) {
-            data = await db.collection(nameproduct as string).findOne({ date });
+        if (subproduct) {
+            data = await db.collection(subproduct as string).findOne({ date, mainproduct });
             if (!data) {
                 return res.status(404).json({ error: "Data not found" });
             }
         } else {
-            return res.status(400).json({ error: "Missing nameproduct parameter" });
+            return res.status(400).json({ error: "Missing subproduct parameter" });
         }
 
         return res.status(200).json(data);

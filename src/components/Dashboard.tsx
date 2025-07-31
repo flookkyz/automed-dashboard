@@ -13,6 +13,7 @@ import {
 } from "chart.js";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { sub } from "date-fns";
 
 ChartJS.register(
   CategoryScale,
@@ -25,7 +26,8 @@ ChartJS.register(
 );
 
 interface DashboardProps {
-  products: string;
+  mainproduct?: string;
+  subproduct?: string;
 }
 
 interface NameTest {
@@ -38,7 +40,7 @@ interface NameTest {
   detailerror: object[];
 }
 
-function Dashboard({ products }: DashboardProps) {
+function Dashboard({ mainproduct, subproduct }: DashboardProps) {
   const [detailPopup, setDetailPopup] = useState(false);
   const [headerDetail, setHeaderDetail] = useState("");
   const [nameDetail, setNameDetail] = useState("");
@@ -96,38 +98,45 @@ function Dashboard({ products }: DashboardProps) {
     : [];
 
   useEffect(() => {
-    console.log("startgetdate", products);
+    if (!mainproduct || !subproduct) return;
+    let isMounted = true;
     const fetchProducts = async () => {
       setData([]);
       setStartDate(null);
       try {
         const response = await fetch(
-          `/api/getdatefromtest?nameproduct=${products}`
+          `/api/getdatefromtest?mainproduct=${mainproduct}&subproduct=${subproduct}`
         );
         if (!response.ok) {
           throw new Error("Network response was not ok");
         }
         const data = await response.json();
-        const lastItem = data[data.length - 1];
-        setStartDate(new Date(lastItem));
-        setData(data);
+        if (!isMounted) return;
+        if (data && data.length > 0) {
+          const lastItem = data[data.length - 1];
+          setStartDate(new Date(lastItem));
+          setData(data);
+        } else {
+          setStartDate(null);
+          setData([]);
+        }
       } catch (error: any) {
-        console.log(error.message);
+        if (isMounted) console.log(error.message);
       }
     };
-
     fetchProducts();
-  }, [products]);
+    return () => { isMounted = false; };
+  }, [mainproduct, subproduct]);
 
   useEffect(() => {
     const fetchProduct = async () => {
-      if (!products) return;
+      if (!mainproduct && !subproduct) return;
       try {
         if (!startDate) {
           throw new Error("Start date is not selected");
         }
         const response = await fetch(
-          `/api/gettestdata?nameproduct=${products}&date=${
+          `/api/gettestdata?mainproduct=${mainproduct}&subproduct=${subproduct}&date=${
             startDate.toISOString().split("T")[0]
           }`
         );
@@ -143,7 +152,7 @@ function Dashboard({ products }: DashboardProps) {
       }
     };
     fetchProduct();
-  }, [products, startDate]);
+  }, [mainproduct, subproduct, startDate]);
 
   const doughnutChartData = {
     labels: ["Pass", "Fail", "Error"],
@@ -217,7 +226,7 @@ function Dashboard({ products }: DashboardProps) {
       <div className="p-4">
         <div className="flex justify-between items-center">
           <p className="text-xl font-bold">
-            {products ? products : "Welcome To Dashbaord"}
+            {subproduct ? subproduct : "Welcome To Dashboard"}
           </p>
           <div className="flex items-center justify-end">
             <label className="mr-2">Select Date : </label>

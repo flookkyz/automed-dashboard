@@ -36,6 +36,7 @@ interface NameTest {
   fail: number;
   error: number;
   time: string;
+  mainproduct: string;
   detailfail: object[];
   detailerror: object[];
 }
@@ -49,26 +50,28 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
   const [loading, setLoading] = useState<boolean>(false);
   const router = useRouter();
 
-  const handleProductClick = (productName: string) => {
-    router.push(`/${productName}`);
+  const handleProductClick = (product: NameTest) => {
+    router.push(`/${product.mainproduct}/${product.name}`);
   };
 
   useEffect(() => {
     let isMounted = true; // Flag to prevent state updates if component unmounts
-    
+
     const fetchProduct = async () => {
       if (loading) return; // Prevent multiple simultaneous calls
-      
+
       try {
         if (!startDate) {
           throw new Error("Start date is not selected");
         }
-        
+
         setLoading(true);
         setError(null);
         const response = await fetch(
           `/api/getsummary?date=${startDate.toISOString().split("T")[0]}`
         );
+        console.log("Fetching data for response:", response);
+
         if (!response.ok) {
           throw new Error("Network response was not ok");
         }
@@ -89,36 +92,56 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
           fail: number;
           error: number;
           name: string;
+          mainproduct: string;
         }[] = [];
         if (finaldata.length === 0) {
-          sumresult.push({ pass: 0, fail: 0, error: 0, name: "nodata" });
+          sumresult.push({
+            pass: 0,
+            fail: 0,
+            error: 0,
+            name: "nodata",
+            mainproduct: "",
+          });
         } else {
           finaldata.forEach((item) => {
             console.log("item", item.key);
             const sum = item?.value.nametest.reduce(
               (
-                acc: { pass: number; fail: number; error: number },
+                acc: {
+                  pass: number;
+                  fail: number;
+                  error: number;
+                  name: string;
+                  mainproduct: string;
+                },
                 curr: NameTest
               ) => ({
                 pass: acc.pass + curr.pass,
                 fail: acc.fail + curr.fail,
                 error: acc.error + curr.error,
                 name: item.key,
+                mainproduct: item.value.mainproduct || "",
               }),
-              { pass: 0, fail: 0, error: 0, name: "" }
+              {
+                pass: 0,
+                fail: 0,
+                error: 0,
+                name: item.key,
+                mainproduct: item.value.mainproduct || "",
+              }
             );
             sumresult.push(sum);
           });
           sumresult.sort((a, b) => a.name.localeCompare(b.name));
         }
-        
+
         if (!isMounted) return; // Don't update state if component unmounted
-        
+
         setSumresult(sumresult);
         console.log("sumresult", sumresult);
       } catch (error) {
         if (!isMounted) return; // Don't update state if component unmounted
-        
+
         if (error instanceof Error) {
           setError(error.message);
         } else {
@@ -135,9 +158,9 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
         }
       }
     };
-    
+
     fetchProduct();
-    
+
     // Cleanup function
     return () => {
       isMounted = false;
@@ -150,7 +173,7 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
       if (elements && elements.length > 0) {
         // Get the product name from the chart context
         const chart = event.chart;
-        const productName = chart.canvas.getAttribute('data-product-name');
+        const productName = chart.canvas.getAttribute("data-product-name");
         if (productName) {
           handleProductClick(productName);
         }
@@ -200,12 +223,12 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
                   },
                 ],
               };
-              
+
               const chartOptions = {
                 ...doughnutOptions,
                 onClick: (event: any, elements: any) => {
-                  handleProductClick(test.name);
-                }
+                  handleProductClick(test);
+                },
               };
 
               return (
@@ -214,14 +237,11 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
                   className="w-full h-[100%] flex flex-col items-center justify-center mb-6"
                 >
                   <p className="font-bold text-xl">{test.name}</p>
-                  <div 
+                  <div
                     className="cursor-pointer hover:opacity-80 transition-opacity w-[350px] h-[350px]"
-                    onClick={() => handleProductClick(test.name)}
+                    onClick={() => handleProductClick(test)}
                   >
-                    <Doughnut
-                      data={doughnutChartData}
-                      options={chartOptions}
-                    />
+                    <Doughnut data={doughnutChartData} options={chartOptions} />
                   </div>
                 </div>
               );

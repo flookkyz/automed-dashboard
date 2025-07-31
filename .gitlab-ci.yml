@@ -35,12 +35,13 @@ deploy:
       echo "Stopping and removing container ${IMAGE_NAME}...";
       docker stop "${IMAGE_NAME}" && docker rm "${IMAGE_NAME}";
       fi
-    - docker run
-      --env NODE_ENV=production
-      --env MONGODB_URI=$MONGODB_URI
-      --env MONGODB_DB=$MONGODB_DB
-      -v /etc/localtime:/etc/localtime:ro
-      -p $EXPOSE_PORT:$PORT
+    - docker run \
+      --env NODE_ENV=production \
+      --env TZ=Asia/Bangkok \
+      --env MONGODB_URI=$MONGODB_URI \
+      --env MONGODB_DB=$MONGODB_DB \
+      -v /etc/localtime:/etc/localtime:ro \
+      -p $EXPOSE_PORT:$PORT \
       -d --name "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'

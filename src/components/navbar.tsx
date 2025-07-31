@@ -34,14 +34,15 @@ function navbar() {
         }));
     };
 
-    const onSelectProduct = (product: string) => {
-        setSelectedProduct(product);
-        if (product === "") {
+    const onSelectProduct = (main: string, sub?: string) => {
+        setSelectedProduct(sub || main);
+        if (!main) {
             router.push('/');
+        } else if (sub) {
+            router.push(`/${main}/${sub}`);
         } else {
-            router.push(`/${product}`);
+            router.push(`/${main}`);
         }
-        // Don't close the dropdown when selecting sub-product
     }
 
     useEffect(() => {
@@ -78,9 +79,10 @@ function navbar() {
         try {
             // Check main products
             for (const product of products) {
-                if (product.mainProduct) {
+                if (product.mainProduct && product.subProduct && product.subProduct.length > 0) {
+                    // Check main product (use first subProduct as default for main)
                     try {
-                        const response = await fetch(`/api/gettestdata?nameproduct=${product.mainProduct}&date=${today}`);
+                        const response = await fetch(`/api/gettestdata?mainproduct=${product.mainProduct}&subproduct=${product.subProduct[0]}&date=${today}`);
                         if (response.ok) {
                             const data = await response.json();
                             const hasFail = data.nametest?.some((test: any) => test.fail > 0) || false;
@@ -90,13 +92,10 @@ function navbar() {
                         console.log(`Error checking ${product.mainProduct}:`, error);
                         failStatus[product.mainProduct] = false;
                     }
-                }
-                
-                // Check sub products
-                if (product.subProduct) {
+                    // Check sub products
                     for (const subProduct of product.subProduct) {
                         try {
-                            const response = await fetch(`/api/gettestdata?nameproduct=${subProduct}&date=${today}`);
+                            const response = await fetch(`/api/gettestdata?mainproduct=${product.mainProduct}&subproduct=${subProduct}&date=${today}`);
                             if (response.ok) {
                                 const data = await response.json();
                                 const hasFail = data.nametest?.some((test: any) => test.fail > 0) || false;
@@ -200,7 +199,7 @@ function navbar() {
                                                     selectedProduct === product.mainProduct
                                                         ? "bg-gray-600 text-blue-300"
                                                         : shouldShowRed
-                                                        ? "hover:bg-red-700 bg-red-600"
+                                                        ? "hover:bg-red-500 bg-red-400"
                                                         : "hover:bg-gray-700"
                                                 }`}
                                                 onClick={() => handleToggleSub(product.mainProduct)}
@@ -242,10 +241,10 @@ function navbar() {
                                                                     selectedProduct === subProduct
                                                                         ? "bg-gray-600 text-blue-300"
                                                                         : subProductHasFail
-                                                                        ? "hover:bg-red-700 bg-red-600 text-red-200"
+                                                                        ? "hover:bg-red-500 bg-red-400 text-red-200"
                                                                         : "hover:bg-gray-700"
                                                                 }`}
-                                                                onClick={() => onSelectProduct(subProduct)}
+                                                                onClick={() => onSelectProduct(product.mainProduct, subProduct)}
                                                             >
                                                                 {subProductHasFail && "⚠️ "}
                                                                 {subProduct}
