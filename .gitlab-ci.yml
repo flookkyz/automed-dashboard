@@ -37,7 +37,6 @@ deploy:
       fi
     - docker run \
       --env NODE_ENV=production \
-      --env TZ=Asia/Bangkok \
       --env MONGODB_URI=$MONGODB_URI \
       --env MONGODB_DB=$MONGODB_DB \
       -v /etc/localtime:/etc/localtime:ro \
