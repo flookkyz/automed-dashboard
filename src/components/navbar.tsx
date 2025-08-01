@@ -40,9 +40,9 @@ function navbar() {
         if (!main) {
             router.push('/');
         } else if (sub) {
-            router.push(`/${main}/${sub}`);
+            router.push(`/${main}/${sub}`, undefined, { shallow: true });
         } else {
-            router.push(`/${main}`);
+            router.push(`/${main}` , undefined, { shallow: true });
         }
     }
 
@@ -134,6 +134,7 @@ function navbar() {
             setSelectedProduct("");
         }
         // Don't reset openIndexes when route changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [router.query.slug, newProducts]);
 
     return (
