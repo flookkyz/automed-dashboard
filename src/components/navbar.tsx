@@ -9,6 +9,7 @@ function navbar() {
     const [error, setError] = useState<string | null>(null);
     const [openIndexes, setOpenIndexes] = useState<{ [key: string]: boolean }>({});
     const [productFailStatus, setProductFailStatus] = useState<{ [key: string]: boolean }>({});
+    const [productErrorStatus, setProductErrorStatus] = useState<{ [key: string]: boolean }>({});
     const router = useRouter();
 
     // Keep dropdown state persistent
@@ -75,7 +76,7 @@ function navbar() {
     const fetchProductFailStatus = async (products: any[]) => {
         const today = new Date().toISOString().split('T')[0];
         const failStatus: { [key: string]: boolean } = {};
-        
+        const errorStatus: { [key: string]: boolean } = {};
         try {
             // Check main products
             for (const product of products) {
@@ -86,11 +87,14 @@ function navbar() {
                         if (response.ok) {
                             const data = await response.json();
                             const hasFail = data.nametest?.some((test: any) => test.fail > 0) || false;
+                            const hasError = data.nametest?.some((test: any) => test.error > 0) || false;
                             failStatus[product.mainProduct] = hasFail;
+                            errorStatus[product.mainProduct] = hasError;
                         }
                     } catch (error) {
                         console.log(`Error checking ${product.mainProduct}:`, error);
                         failStatus[product.mainProduct] = false;
+                        errorStatus[product.mainProduct] = false;
                     }
                     // Check sub products
                     for (const subProduct of product.subProduct) {
@@ -99,17 +103,20 @@ function navbar() {
                             if (response.ok) {
                                 const data = await response.json();
                                 const hasFail = data.nametest?.some((test: any) => test.fail > 0) || false;
+                                const hasError = data.nametest?.some((test: any) => test.error > 0) || false;
                                 failStatus[subProduct] = hasFail;
+                                errorStatus[subProduct] = hasError;
                             }
                         } catch (error) {
                             console.log(`Error checking ${subProduct}:`, error);
                             failStatus[subProduct] = false;
+                            errorStatus[subProduct] = false;
                         }
                     }
                 }
             }
-            
             setProductFailStatus(failStatus);
+            setProductErrorStatus(errorStatus);
         } catch (error) {
             console.log('Error fetching product fail status:', error);
         }
@@ -182,14 +189,16 @@ function navbar() {
                             newProducts.map((product, index) => {
                                 const isOpenSub = openIndexes[product.mainProduct] || false;
                                 const mainProductHasFail = productFailStatus[product.mainProduct] || false;
+                                const mainProductHasError = productErrorStatus[product.mainProduct] || false;
                                 
-                                // Check if any sub-products have fails
-                                const hasSubProductFail = product.subProduct?.some((sub: string) => 
-                                    productFailStatus[sub] || false
-                                ) || false;
+                                // Check if any sub-products have fails or errors
+                                const hasSubProductFail = product.subProduct?.some((sub: string) => productFailStatus[sub] || false) || false;
+                                const hasSubProductError = product.subProduct?.some((sub: string) => productErrorStatus[sub] || false) || false;
                                 
                                 // Main product should be red if it has fails OR any sub-product has fails
+                                // Main product should be yellow if it has error OR any sub-product has error
                                 const shouldShowRed = mainProductHasFail || hasSubProductFail;
+                                const shouldShowYellow = mainProductHasError || hasSubProductError;
                                 
                                 return (
                                     <React.Fragment key={index}>
@@ -198,14 +207,17 @@ function navbar() {
                                                 className={`flex items-center justify-between block pt-4 p-2 border-b-2 border-gray-600 dark:border-gray-600 cursor-pointer ${
                                                     selectedProduct === product.mainProduct
                                                         ? "bg-gray-600 text-blue-300"
+                                                        : shouldShowYellow
+                                                        ? "hover:bg-yellow-500 bg-yellow-400 text-yellow-900"
                                                         : shouldShowRed
                                                         ? "hover:bg-red-500 bg-red-400"
                                                         : "hover:bg-gray-700"
                                                 }`}
                                                 onClick={() => handleToggleSub(product.mainProduct)}
                                             >
-                                                <span className={shouldShowRed ? "text-red-200" : ""}>
-                                                    {shouldShowRed && "⚠️ "}
+                                                <span className={shouldShowRed ? "text-red-200" : shouldShowYellow ? "text-yellow-900" : ""}>
+                                                    {shouldShowYellow && "⚠️ "}
+                                                    {shouldShowRed && "🛑 "}
                                                     {product.mainProduct}
                                                 </span>
                                                 {product.subProduct &&
@@ -233,6 +245,7 @@ function navbar() {
                                             product.subProduct.map(
                                                 (subProduct: any, subIndex: any) => {
                                                     const subProductHasFail = productFailStatus[subProduct] || false;
+                                                    const subProductHasError = productErrorStatus[subProduct] || false;
                                                     
                                                     return (
                                                         <li key={`${index}-${subIndex}`}>
@@ -240,13 +253,16 @@ function navbar() {
                                                                 className={`block pl-8 pt-2 p-2 border-b border-gray-600 dark:border-gray-600 cursor-pointer ${
                                                                     selectedProduct === subProduct
                                                                         ? "bg-gray-600 text-blue-300"
+                                                                        : subProductHasError
+                                                                        ? "hover:bg-yellow-500 bg-yellow-400 text-yellow-900"
                                                                         : subProductHasFail
                                                                         ? "hover:bg-red-500 bg-red-400 text-red-200"
                                                                         : "hover:bg-gray-700"
                                                                 }`}
                                                                 onClick={() => onSelectProduct(product.mainProduct, subProduct)}
                                                             >
-                                                                {subProductHasFail && "⚠️ "}
+                                                                {subProductHasError && "⚠️ "}
+                                                                {subProductHasFail && "🛑 "}
                                                                 {subProduct}
                                                             </a>
                                                         </li>
