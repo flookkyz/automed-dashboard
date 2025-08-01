@@ -136,7 +136,14 @@ export default async function handler(
         /////////////////////////////////////////
         const client = await clientPromise;
 
-        const nowdate = new Date().toISOString().split("T")[0];
+        // Helper to get date in Thailand timezone (UTC+7)
+        function getThailandDateString() {
+          const now = new Date();
+          // Convert to UTC+7
+          const thailandTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+          return thailandTime.toISOString().split("T")[0];
+        }
+        const nowdate = getThailandDateString();
         const db = client.db("automedtest-dashboard");
         
         // Update product_name collection (same logic as addjsondata)

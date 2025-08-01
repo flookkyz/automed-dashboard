@@ -68,7 +68,14 @@ export default async function handler(
       });
     }
   }
-  data.date = new Date().toISOString().split("T")[0]; // Only keep the date part
+  // Helper to get date in Thailand timezone (UTC+7)
+  function getThailandDateString() {
+    const now = new Date();
+    const thailandTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    return thailandTime.toISOString().split("T")[0];
+  }
+
+  data.date = getThailandDateString(); // Only keep the date part in Thailand timezone
 
   const client = await clientPromise;
   const db = client.db("automedtest-dashboard");
