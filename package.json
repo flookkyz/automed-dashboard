@@ -11,10 +11,9 @@
   "dependencies": {
     "@internationalized/date": "^3.7.0",
     "@react-aria/i18n": "^3.12.6",
-    "@types/formidable": "^3.4.5",
     "chart.js": "^4.5.0",
     "cheerio": "^1.0.0",
-    "formidable": "^3.5.2",
+    "formidable": "^3.5.4",
     "mongodb": "^6.17.0",
     "next": "15.1.6",
     "react": "^19.0.0",
@@ -26,6 +25,7 @@
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.35",
+    "@types/formidable": "^3.4.5",
     "@types/mongodb": "^4.0.7",
     "@types/node": "^20",
     "@types/react": "^19",

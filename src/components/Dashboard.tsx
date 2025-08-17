@@ -226,7 +226,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       <div className="p-4">
         <div className="flex justify-between items-center">
           <p className="text-xl font-bold">
-            {subproduct ? subproduct : "Welcome To Dashboard"}
+            {subproduct && mainproduct ? `${mainproduct} > ${subproduct}` : "Welcome To Dashboard"}
           </p>
           <div className="flex items-center justify-end">
             <label className="mr-2">Select Date : </label>
@@ -236,6 +236,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                 setStartDate(date);
               }}
               includeDates={data}
+              dateFormat="dd/MM/yyyy"
               placeholderText="This only includes today and tomorrow"
               className="border border-b-gray-300 rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400"
             />

@@ -203,6 +203,7 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
             onChange={(date) => {
               setStartDate(date);
             }}
+            dateFormat="dd/MM/yyyy"
             className="border border-b-gray-300 rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400"
           />
         </div>
