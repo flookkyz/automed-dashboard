@@ -406,7 +406,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       </div>
       {detailPopup && (
         <div className="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-500 dark:text-white w-2/3 h-4/6 rounded-xl p-8 flex flex-col items-center justify-center dark:text-black">
+          <div className="bg-white dark:bg-gray-500 dark:text-white w-2/3 h-5/6 rounded-xl p-8 flex flex-col items-center justify-center dark:text-black">
             <div className="text-xl text-center font-bold">{nameDetail}</div>
             <div className="text-xl text-center font-bold">
               {headerDetail} Detail
@@ -426,7 +426,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                   )}
                 </thead>
               </table>
-              <div className="overflow-y-auto h-[35vh]">
+              <div className="overflow-y-auto h-[45vh]">
                 <table className="w-full">
                   <tbody>
                     {Array.isArray(detailTest) &&
