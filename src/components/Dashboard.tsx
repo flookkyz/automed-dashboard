@@ -242,7 +242,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
             />
           </div>
         </div>
-        <div className="w-full h-32 mt-6 px-36 flex flex-row items-center justify-between font-bold">
+        <div className="w-full h-32 mt-6 gap-4 px-36 flex flex-row items-center justify-between font-bold">
           <div className="w-60 bg-gray-200 flex flex-col items-start justify-center h-full rounded-xl p-4 text-gray-800">
             <div className="text-xl">Total</div>
             <div className="text-3xl">{sum?.pass + sum?.fail + sum?.error}</div>
@@ -426,7 +426,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                   )}
                 </thead>
               </table>
-              <div className="overflow-y-auto h-80">
+              <div className="overflow-y-auto h-[35vh]">
                 <table className="w-full">
                   <tbody>
                     {Array.isArray(detailTest) &&
