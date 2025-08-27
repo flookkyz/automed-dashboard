@@ -65,6 +65,9 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
   const onDetail = (action: String, data: any, name: string) => {
     setHeaderDetail(action === "fail" ? "Fail" : "Error");
     setNameDetail(name);
+    console.log("data", data.length);
+    
+    if (data.length === 0 && data.length === 0) return;
     setDetailPopup(true);
     setDetailTest(data);
   };
@@ -152,6 +155,8 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       }
     };
     fetchProduct();
+    console.log("product = ", product);
+    
   }, [mainproduct, subproduct, startDate]);
 
   const doughnutChartData = {
@@ -366,7 +371,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                   <td
                     style={{ width: "8%" }}
                     className="py-2 text-center bg-[#f77575] cursor-pointer"
-                    onClick={() => data.detailfail ? onDetail("fail", data.detailfail, data.name) : null}
+                    onClick={() => onDetail("fail", data.detailfail, data.name)}
                   >
                     {data.fail}
                   </td>
