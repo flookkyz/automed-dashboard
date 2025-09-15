@@ -20,13 +20,19 @@ export const config = {
 
 export function extractErrorAndCallLog(text: string): {
   error: string;
+  expected?: string;
+  received?: string;
   name?: string;
 } {
   const errorMatch = text.match(/Error:.*?(?=\n\s*\n)/s);
+  const expectedMatch = text.match(/Expected:\s*(.*)/);
+  const receivedMatch = text.match(/Received:\s*(.*)/);
 
   const errorText = errorMatch ? errorMatch[0] : "Error not found";
+  const expectedText = expectedMatch ? expectedMatch[1].trim() : undefined;
+  const receivedText = receivedMatch ? receivedMatch[1].trim() : undefined;
 
-  return { error: errorText };
+  return { error: errorText, expected: expectedText, received: receivedText };
 }
 
 export default async function handler(
@@ -90,21 +96,28 @@ export default async function handler(
           (testsuite: TestSuite) => {
             const detail: Detail[] = [];
             testsuite.testcase.map((tc) => {
-              console.log("tc", String(tc.name));
-              console.log("fail", tc.failure ? tc.failure[0]._ : "no fail");
-              let data: { name?: string; error: string } = {
+              let data: Detail = {
                 error: "",
+                name: String(tc.name),
               };
               if (tc.failure) {
-                data = extractErrorAndCallLog(tc.failure[0]._);
-                data.name = String(tc.name);
+                const extracted = extractErrorAndCallLog(tc.failure[0]._);
+                data.error = extracted.error;
+                data.expected = extracted.expected;
+                data.received = extracted.received;
+              }
+              if (tc.failure) {
                 detail.push(data);
+                console.log("detail", detail);
+                
               }
             });
 
             interface Detail {
               error: string;
               name?: string;
+              expected?: string;
+              received?: string;
             }
 
             interface DataMap {

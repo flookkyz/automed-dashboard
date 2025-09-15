@@ -453,6 +453,16 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                                       item.error.split("Call log")[1]
                                     }`
                                   : null}
+                                {item.expected ? (
+                                  <div className="text-green-500">
+                                    Expected: {item.expected}
+                                  </div>
+                                ) : null}
+                                {item.received ? (
+                                  <div className="text-red-500">
+                                    Received: {item.received}
+                                  </div>
+                                ) : null}
                               </td>
                             </tr>
                           ) : (
