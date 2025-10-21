@@ -48,6 +48,7 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
   >([]);
   const [startDate, setStartDate] = useState<Date | null>(new Date());
   const [loading, setLoading] = useState<boolean>(false);
+  const [filter, setFilter] = useState<"all" | "fail" | "error">("all");
   const router = useRouter();
 
   const handleProductClick = (product: NameTest) => {
@@ -196,24 +197,54 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
   return (
     <>
       <div className="p-4">
-        <div className="flex items-center justify-end mb-2">
-          <label className="mr-2">Select Date : </label>
-          <DatePicker
-            selected={startDate}
-            onChange={(date) => {
-              setStartDate(date);
-            }}
-            dateFormat="dd/MM/yyyy"
-            className="border border-b-gray-300 rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400"
-          />
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex justify-center text-white font-bold text-l">
+            <div className={`w-[5vw] p-2 border rounded-l-lg text-center ${filter === "all" ? "bg-gray-500" : "bg-gray-700 text-gray-200"} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => setFilter("all")}>
+              All
+            </div>
+            <div className={`w-[5vw] p-2 border text-center ${filter === "fail" ? "bg-gray-500" : "bg-gray-700 text-gray-200"} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => setFilter("fail")}>
+              Fail
+            </div>
+            <div className={`w-[5vw] p-2 border rounded-r-lg text-center ${filter === "error" ? "bg-gray-500" : "bg-gray-700 text-gray-200"} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => setFilter("error")}>
+              Error
+            </div>
+          </div>
+          <div>
+            <label className="mr-2">Select Date : </label>
+            <DatePicker
+              selected={startDate}
+              onChange={(date) => {
+                setStartDate(date);
+              }}
+              dateFormat="dd/MM/yyyy"
+              className="border border-b-gray-300 rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400"
+            />
+          </div>
         </div>
+
         <div className="grid grid-cols-3 gap-4">
           {sumresult.length === 1 && sumresult[0].name === "nodata" ? (
             <div className="col-span-3 flex flex-col items-center justify-center h-96">
-              <p className="font-bold text-2xl text-white">Data not found ☹️</p>
+              <p className="font-bold text-2xl text-white">Data not found 🤩</p>
             </div>
           ) : (
-            sumresult.map((test: any, index: number) => {
+            (() => {
+              const filtered = sumresult.filter((item: any) => {
+                if (filter === "all") return true;
+                if (filter === "fail") return item.fail > 0;
+                if (filter === "error") return item.error > 0;
+                return true;
+              });
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="col-span-3 flex flex-col items-center justify-center h-96">
+                    <p className="font-bold text-2xl text-white">No Data 🤩</p>
+                  </div>
+                );
+              }
+
+              return filtered.map((test: any, index: number) => {
               const doughnutChartData = {
                 labels: ["Pass", "Fail", "Error"],
                 datasets: [
@@ -232,21 +263,22 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
                 },
               };
 
-              return (
-                <div
-                  key={index}
-                  className="w-full h-[100%] flex flex-col items-center justify-center mb-6"
-                >
-                  <p className="font-bold text-xl">{test.name}</p>
+                return (
                   <div
-                    className="cursor-pointer hover:opacity-80 transition-opacity w-[350px] h-[350px]"
-                    onClick={() => handleProductClick(test)}
+                    key={index}
+                    className="w-full h-[100%] flex flex-col items-center justify-center mb-6"
                   >
-                    <Doughnut data={doughnutChartData} options={chartOptions} />
+                    <p className="font-bold text-xl">{test.name}</p>
+                    <div
+                      className="cursor-pointer hover:opacity-80 transition-opacity w-[350px] h-[350px]"
+                      onClick={() => handleProductClick(test)}
+                    >
+                      <Doughnut data={doughnutChartData} options={chartOptions} />
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              });
+            })()
           )}
         </div>
       </div>

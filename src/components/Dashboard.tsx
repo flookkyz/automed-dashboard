@@ -342,16 +342,16 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                 className="py-2 cursor-pointer"
                 onClick={() => handleSort("time")}
               >
-                Time(s){" "}
+                Duration(s){" "}
                 {sortKey === "time" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
               </th>
               <th
                 style={{ width: "9%" }}
                 className="py-2 cursor-pointer"
-                onClick={() => handleSort("date")}
+                onClick={() => handleSort("time")}
               >
-                Date{" "}
-                {sortKey === "date" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
+                Test Time{" "}
+                {sortKey === "time" ? (sortOrder === "asc" ? "▲" : "▼") : ""}
               </th>
             </tr>
           </thead>
@@ -402,7 +402,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                   {data.time}
                 </td>
                 <td style={{ width: "9%" }} className="py-2 text-center">
-                  {product.date}
+                  {product.time}
                 </td>
               </tr>
             ))}

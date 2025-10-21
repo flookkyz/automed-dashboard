@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
+import { set } from "react-datepicker/dist/date_utils";
 
 function navbar() {
   const [isOpen, setIsOpen] = useState(true);
   // Change selectedProduct to store both main and sub product for uniqueness
-  const [selectedProduct, setSelectedProduct] = useState<{ main?: string; sub?: string }>(
-    {}
-  );
+  const [selectedProduct, setSelectedProduct] = useState<{
+    main?: string;
+    sub?: string;
+  }>({});
   const [newProducts, setNewProducts] = useState<any[]>([]);
   const [originalNewProducts, setOriginalNewProducts] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -86,61 +88,30 @@ function navbar() {
   }, []);
 
   const fetchProductFailStatus = async (products: any[]) => {
-    const today = new Date().toISOString().split("T")[0];
     const failStatus: { [key: string]: boolean } = {};
     const errorStatus: { [key: string]: boolean } = {};
     try {
-      // Check main products
-      for (const product of products) {
-        if (
-          product.mainProduct &&
-          product.subProduct &&
-          product.subProduct.length > 0
-        ) {
-          // Check main product (use first subProduct as default for main)
-          try {
-            const response = await fetch(
-              `/api/gettestdata?mainproduct=${product.mainProduct}&subproduct=${product.subProduct[0]}&date=${today}`
-            );
-            if (response.ok) {
-              const data = await response.json();
-              const hasFail =
-                data.nametest?.some((test: any) => test.fail > 0) || false;
-              const hasError =
-                data.nametest?.some((test: any) => test.error > 0) || false;
-              failStatus[product.mainProduct] = hasFail;
-              errorStatus[product.mainProduct] = hasError;
-            }
-          } catch (error) {
-            console.log(`Error checking ${product.mainProduct}:`, error);
-            failStatus[product.mainProduct] = false;
-            errorStatus[product.mainProduct] = false;
-          }
-          // Check sub products
-          for (const subProduct of product.subProduct) {
-            try {
-              const response = await fetch(
-                `/api/gettestdata?mainproduct=${product.mainProduct}&subproduct=${subProduct}&date=${today}`
-              );
-              if (response.ok) {
-                const data = await response.json();
-                const hasFail =
-                  data.nametest?.some((test: any) => test.fail > 0) || false;
-                const hasError =
-                  data.nametest?.some((test: any) => test.error > 0) || false;
-                failStatus[subProduct] = hasFail;
-                errorStatus[subProduct] = hasError;
-              }
-            } catch (error) {
-              console.log(`Error checking ${subProduct}:`, error);
-              failStatus[subProduct] = false;
-              errorStatus[subProduct] = false;
-            }
-          }
+      const response = await fetch(`/api/getnavbardata`);
+      if (response.ok) {
+        const data = await response.json();
+        console.log("flookkyz getnavbar", data);
+
+        // แยกข้อมูลจาก response
+        if (data.data) {
+          Object.keys(data.data).forEach((collectionName) => {
+            const collectionData = data.data[collectionName];
+            failStatus[collectionName] = collectionData.hasFail || false;
+            errorStatus[collectionName] = collectionData.hasError || false;
+          });
         }
+        
+        console.log("flookkyz failStatus:", failStatus);
+        console.log("flookkyz errorStatus:", errorStatus);
+        
+        // Set states
+        setProductFailStatus(failStatus);
+        setProductErrorStatus(errorStatus);
       }
-      setProductFailStatus(failStatus);
-      setProductErrorStatus(errorStatus);
     } catch (error) {
       console.log("Error fetching product fail status:", error);
     }
@@ -170,10 +141,10 @@ function navbar() {
 
   return (
     <>
-      <div className="fixed left-0 top-0 w-64 h-screen bg-gray-800 text-white overflow-y-auto">
+      <div className="fixed left-0 top-0 w-64 h-screen bg-gray-800 text-white overflow-y-auto font-nunito">
         <div className="p-4">
           <h1
-            className="text-2xl font-bold cursor-pointer p-2 rounded"
+            className="text-4xl font-bold cursor-pointer rounded font-nunito text-center"
             onClick={() => onSelectProduct("")}
           >
             Dashboard
@@ -183,8 +154,8 @@ function navbar() {
           <div className="flex items-center justify-center mt-2">
             <input
               type="text"
-              placeholder="Filter products"
-              className="w-[90%] p-2 mb-2 ring-0 border-0 rounded rounded-md p-2 bg-white text-black dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 focus:ring-blue-400 focus:border-transparent"
+              placeholder="Filter products..."
+              className="w-[90%] p-2 mb-2 ring-0 border-0 rounded rounded-md p-2 bg-white text-black dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 focus:ring-blue-400 focus:border-transparent font-nunito"
               onChange={(e) => {
                 const filter = e.target.value.toLowerCase();
                 setNewProducts(
@@ -246,7 +217,8 @@ function navbar() {
                     <li>
                       <div
                         className={`flex items-center justify-between block pt-4 p-2 border-b-2 border-gray-600 dark:border-gray-600 cursor-pointer ${
-                          selectedProduct.main === product.mainProduct && !selectedProduct.sub
+                          selectedProduct.main === product.mainProduct &&
+                          !selectedProduct.sub
                             ? "bg-gray-600 text-blue-300"
                             : shouldShowYellow
                             ? "hover:bg-yellow-500 bg-yellow-400 text-yellow-900"
@@ -258,7 +230,8 @@ function navbar() {
                       >
                         <span
                           className={
-                            selectedProduct.main === product.mainProduct && !selectedProduct.sub
+                            selectedProduct.main === product.mainProduct &&
+                            !selectedProduct.sub
                               ? "text-blue-300 font-bold"
                               : shouldShowRed
                               ? "text-red-900"
@@ -304,7 +277,9 @@ function navbar() {
                             <li key={`${index}-${subIndex}`}>
                               <a
                                 className={`block pl-8 pt-2 p-2 border-b border-gray-600 dark:border-gray-600 cursor-pointer ${
-                                  selectedProduct.main === product.mainProduct && selectedProduct.sub === subProduct
+                                  selectedProduct.main ===
+                                    product.mainProduct &&
+                                  selectedProduct.sub === subProduct
                                     ? "bg-gray-600 text-blue-300 font-bold"
                                     : subProductHasError
                                     ? "hover:bg-yellow-500 bg-yellow-400 text-yellow-900"
@@ -312,13 +287,20 @@ function navbar() {
                                     ? "hover:bg-red-500 bg-red-400 text-red-900"
                                     : "hover:bg-gray-700"
                                 }`}
-                                onClick={() => onSelectProduct(product.mainProduct, subProduct)}
+                                onClick={() =>
+                                  onSelectProduct(
+                                    product.mainProduct,
+                                    subProduct
+                                  )
+                                }
                               >
                                 {subProductHasError && "⚠️ "}
                                 {subProductHasFail && "🛑 "}
                                 <span
                                   className={
-                                    selectedProduct.main === product.mainProduct && selectedProduct.sub === subProduct
+                                    selectedProduct.main ===
+                                      product.mainProduct &&
+                                    selectedProduct.sub === subProduct
                                       ? "text-blue-300 font-bold"
                                       : subProductHasFail
                                       ? "text-red-900"

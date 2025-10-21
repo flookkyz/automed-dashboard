@@ -21,6 +21,7 @@ type TestData = {
   subproduct: string;
   date: string;
   nametest: Test[];
+  time?: string;
   timestamp?: Date;
 };
 
@@ -75,7 +76,15 @@ export default async function handler(
     return thailandTime.toISOString().split("T")[0];
   }
 
+  // Helper to get time in Thailand timezone (UTC+7) in HH:MM:ss format
+  function getThailandTimeString() {
+    const now = new Date();
+    const thailandTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+    return thailandTime.toISOString().split("T")[1].split(".")[0];
+  }
+
   data.date = getThailandDateString(); // Only keep the date part in Thailand timezone
+  data.time = getThailandTimeString(); // Add time in HH:MM:ss format
 
   const client = await clientPromise;
   const db = client.db("automedtest-dashboard");

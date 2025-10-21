@@ -140,14 +140,6 @@ export default async function handler(
             datafromxml.push(datamap);
           }
         );
-        const datatosaveindb = {
-          mainproduct: String(reqmainproduct),
-          subproduct: String(reqsubproduct),
-          nametest: datafromxml,
-        };
-        // console.log("datafromxml", datatosaveindb);
-        /////////////////////////////////////////
-        const client = await clientPromise;
 
         // Helper to get date in Thailand timezone (UTC+7)
         function getThailandDateString() {
@@ -156,7 +148,27 @@ export default async function handler(
           const thailandTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
           return thailandTime.toISOString().split("T")[0];
         }
+
+        // Helper to get time in Thailand timezone (UTC+7) in HH:MM:ss format
+        function getThailandTimeString() {
+          const now = new Date();
+          // Convert to UTC+7
+          const thailandTime = new Date(now.getTime() + 7 * 60 * 60 * 1000);
+          return thailandTime.toISOString().split("T")[1].split(".")[0];
+        }
+
         const nowdate = getThailandDateString();
+        const nowtime = getThailandTimeString();
+
+        const datatosaveindb = {
+          mainproduct: String(reqmainproduct),
+          subproduct: String(reqsubproduct),
+          nametest: datafromxml,
+          time: nowtime,
+        };
+        // console.log("datafromxml", datatosaveindb);
+        /////////////////////////////////////////
+        const client = await clientPromise;
         const db = client.db("automedtest-dashboard");
         
         // Update product_name collection (same logic as addjsondata)
@@ -213,8 +225,8 @@ export default async function handler(
           datatosaveindb.nametest = mergedTests;
         }
 
-        const { mainproduct, subproduct, nametest } = datatosaveindb;
-        const dataWithoutMainproduct = { mainproduct, nametest };
+        const { mainproduct, subproduct, nametest, time } = datatosaveindb;
+        const dataWithoutMainproduct = { mainproduct, nametest, time };
 
         await db.collection(subproduct).updateOne(
           { date: nowdate }, // Filter by date
