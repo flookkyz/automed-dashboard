@@ -232,7 +232,7 @@ function SummaryDashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-3 gap-2">
           {sumresult.length === 1 && sumresult[0].name === "nodata" ? (
             <div className="col-span-3 flex flex-col items-center justify-center h-96">
               <p className="font-bold text-2xl text-white">Data not found 🤩</p>
@@ -276,17 +276,43 @@ function SummaryDashboard() {
                 return (
                   <div
                     key={index}
-                    className="w-full h-[100%] flex flex-col items-center justify-center mb-6"
+                    className="w-[80%] h-[80%] flex flex-col items-center justify-center ml-[2vw] mb-6"
                   >
-                    <p className="font-bold text-xl">{test.name}</p>
+                    <p className="font-bold text-[1.5vw]">{test.name}</p>
                     <div
-                      className="cursor-pointer hover:opacity-80 transition-opacity w-[350px] h-[350px]"
+                      className="cursor-pointer hover:opacity-80 transition-opacity w-[20vw] h-[20vw]"
                       onClick={() => handleProductClick(test)}
                     >
-                      <Doughnut
-                        data={doughnutChartData}
-                        options={chartOptions}
-                      />
+                      {/* Styled doughnut similar to Dashboard.tsx: dark circular background, thicker ring, center overlay */}
+                      <div className="relative w-full h-full flex items-center justify-center bg-[#364153] rounded-full p-4">
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <Doughnut
+                            data={doughnutChartData}
+                            options={{
+                              ...chartOptions,
+                              maintainAspectRatio: false,
+                              cutout: "70%",
+                              plugins: {
+                                ...chartOptions.plugins,
+                                legend: { display: false },
+                                title: { display: false },
+                              },
+                            }}
+                          />
+                        </div>
+
+                        <div className="absolute text-center text-white pointer-events-none">
+                          <div className="text-[1vw] mb-2">Test Result</div>
+                          <div className="text-[2vw] font-bold">
+                            {(() => {
+                              const total = (test.pass || 0) + (test.fail || 0) + (test.error || 0);
+                              const pct = total > 0 ? Math.round(((test.pass || 0) / total) * 100) : 0;
+                              return `${pct}%`;
+                            })()}
+                          </div>
+                          <div className="text-[1vw] mt-2">Total</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 );
