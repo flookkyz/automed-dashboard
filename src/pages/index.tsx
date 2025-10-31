@@ -1,24 +1,13 @@
 "use client";
-import React, { useEffect } from "react";
-import { useRouter } from "next/router";
-import Navbar from "../components/navbar";
+import React from "react";
 import SummaryDashboard from "../components/SummaryDashboard";
 
 export default function Home() {
-  const router = useRouter();
-
-  // Redirect to dashboard page or handle main dashboard logic here
-  const onSelectProduct = (product: string) => {
-    // This will be handled by the navbar component's routing
-  };
 
   return (
     <>
-      <div className="flex flex-start">
-        <Navbar />
-      </div>
       <div className="ml-64">
-        <SummaryDashboard products="" onSelectProduct={onSelectProduct} />
+        <SummaryDashboard />
       </div>
     </>
   );

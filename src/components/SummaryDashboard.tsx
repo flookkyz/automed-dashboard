@@ -25,11 +25,6 @@ ChartJS.register(
   Legend
 );
 
-interface DashboardProps {
-  products: string;
-  onSelectProduct: (product: string) => void;
-}
-
 interface NameTest {
   name: string;
   pass: number;
@@ -41,7 +36,7 @@ interface NameTest {
   detailerror: object[];
 }
 
-function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
+function SummaryDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [sumresult, setSumresult] = useState<
     { pass: number; fail: number; error: number; name: string }[]
@@ -166,7 +161,7 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
     return () => {
       isMounted = false;
     };
-  }, [products, startDate]); // Remove startDate dependency if causing issues
+  }, [startDate]); // Remove startDate dependency if causing issues
 
   const doughnutOptions = {
     responsive: true,
@@ -199,13 +194,28 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
       <div className="p-4">
         <div className="flex items-center justify-between mb-2">
           <div className="flex justify-center text-white font-bold text-l">
-            <div className={`w-[5vw] p-2 border rounded-l-lg text-center ${filter === "all" ? "bg-gray-500" : "bg-gray-700 text-gray-200"} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => setFilter("all")}>
+            <div
+              className={`w-[5vw] p-2 border rounded-l-lg text-center ${
+                filter === "all" ? "bg-gray-500" : "bg-gray-700 text-gray-200"
+              } cursor-pointer hover:opacity-80 transition-opacity`}
+              onClick={() => setFilter("all")}
+            >
               All
             </div>
-            <div className={`w-[5vw] p-2 border text-center ${filter === "fail" ? "bg-gray-500" : "bg-gray-700 text-gray-200"} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => setFilter("fail")}>
+            <div
+              className={`w-[5vw] p-2 border text-center ${
+                filter === "fail" ? "bg-gray-500" : "bg-gray-700 text-gray-200"
+              } cursor-pointer hover:opacity-80 transition-opacity`}
+              onClick={() => setFilter("fail")}
+            >
               Fail
             </div>
-            <div className={`w-[5vw] p-2 border rounded-r-lg text-center ${filter === "error" ? "bg-gray-500" : "bg-gray-700 text-gray-200"} cursor-pointer hover:opacity-80 transition-opacity`} onClick={() => setFilter("error")}>
+            <div
+              className={`w-[5vw] p-2 border rounded-r-lg text-center ${
+                filter === "error" ? "bg-gray-500" : "bg-gray-700 text-gray-200"
+              } cursor-pointer hover:opacity-80 transition-opacity`}
+              onClick={() => setFilter("error")}
+            >
               Error
             </div>
           </div>
@@ -245,23 +255,23 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
               }
 
               return filtered.map((test: any, index: number) => {
-              const doughnutChartData = {
-                labels: ["Pass", "Fail", "Error"],
-                datasets: [
-                  {
-                    label: "Test Results",
-                    data: [test.pass, test.fail, test.error],
-                    backgroundColor: ["#66c552", "#f77575", "#f0f06c"],
-                  },
-                ],
-              };
+                const doughnutChartData = {
+                  labels: ["Pass", "Fail", "Error"],
+                  datasets: [
+                    {
+                      label: "Test Results",
+                      data: [test.pass, test.fail, test.error],
+                      backgroundColor: ["#66c552", "#f77575", "#f0f06c"],
+                    },
+                  ],
+                };
 
-              const chartOptions = {
-                ...doughnutOptions,
-                onClick: (event: any, elements: any) => {
-                  handleProductClick(test);
-                },
-              };
+                const chartOptions = {
+                  ...doughnutOptions,
+                  onClick: (event: any, elements: any) => {
+                    handleProductClick(test);
+                  },
+                };
 
                 return (
                   <div
@@ -273,7 +283,10 @@ function SummaryDashboard({ products, onSelectProduct }: DashboardProps) {
                       className="cursor-pointer hover:opacity-80 transition-opacity w-[350px] h-[350px]"
                       onClick={() => handleProductClick(test)}
                     >
-                      <Doughnut data={doughnutChartData} options={chartOptions} />
+                      <Doughnut
+                        data={doughnutChartData}
+                        options={chartOptions}
+                      />
                     </div>
                   </div>
                 );

@@ -13,7 +13,7 @@ import {
 } from "chart.js";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { sub } from "date-fns";
+import SearchInput from "./scarchInput";
 
 ChartJS.register(
   CategoryScale,
@@ -66,7 +66,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
     setHeaderDetail(action === "fail" ? "Fail" : "Error");
     setNameDetail(name);
     console.log("data", data.length);
-    
+
     if (data.length === 0 && data.length === 0) return;
     setDetailPopup(true);
     setDetailTest(data);
@@ -128,7 +128,9 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       }
     };
     fetchProducts();
-    return () => { isMounted = false; };
+    return () => {
+      isMounted = false;
+    };
   }, [mainproduct, subproduct]);
 
   useEffect(() => {
@@ -156,7 +158,6 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
     };
     fetchProduct();
     console.log("product = ", product);
-    
   }, [mainproduct, subproduct, startDate]);
 
   const doughnutChartData = {
@@ -193,12 +194,14 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
 
   const doughnutOptions = {
     responsive: true,
+    maintainAspectRatio: false,
+    cutout: "70%",
     plugins: {
       legend: {
-        position: "bottom" as const,
+        display: false,
       },
       title: {
-        display: true,
+        display: false,
       },
     },
   };
@@ -231,7 +234,9 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       <div className="p-4">
         <div className="flex justify-between items-center">
           <p className="text-xl font-bold">
-            {subproduct && mainproduct ? `${mainproduct} > ${subproduct}` : "Welcome To Dashboard"}
+            {subproduct && mainproduct
+              ? `${mainproduct} > ${subproduct}`
+              : "Welcome To Dashboard"}
           </p>
           <div className="flex items-center justify-end">
             <label className="mr-2">Select Date : </label>
@@ -247,33 +252,180 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
             />
           </div>
         </div>
-        <div className="w-full h-32 mt-6 gap-4 px-36 flex flex-row items-center justify-between font-bold">
-          <div className="w-60 bg-gray-200 flex flex-col items-start justify-center h-full rounded-xl p-4 text-gray-800">
-            <div className="text-xl">Total</div>
-            <div className="text-3xl">{sum?.pass + sum?.fail + sum?.error}</div>
-          </div>
-          <div className="w-60 bg-green-200 flex flex-col items-start justify-center h-full rounded-xl p-4 text-green-800">
-            <div className="text-xl">Pass</div>
-            <div className="text-3xl">{sum?.pass}</div>
-          </div>
-          <div className="w-60 bg-red-200 flex flex-col items-start justify-center h-full rounded-xl p-4 text-red-800">
-            <div className="text-xl">Fail</div>
-            <div className="text-3xl">{sum?.fail}</div>
-          </div>
-          <div className="w-60 bg-yellow-200 flex flex-col items-start justify-center h-full rounded-xl p-4 text-yellow-800">
-            <div className="text-xl">Error</div>
-            <div className="text-3xl">{sum?.error}</div>
+        <p className="mb-2 text-center text-2xl font-bold">
+          Test Results Distribution
+        </p>
+        <div className="w-full mt-6 px-12">
+          {/* Summary cards grid */}
+          <div className="grid grid-cols-4 gap-6 font-bold">
+            {/* Total */}
+            <div className="relative rounded-lg p-1 bg-gray-300 overflow-hidden">
+              <div className="bg-[#364153] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
+                <div className="text-3xl">
+                  {(sum?.pass || 0) + (sum?.fail || 0) + (sum?.error || 0)}
+                </div>
+                <div className="text-lg mt-2 text-gray-200">Total</div>
+                {/* faint background icon */}
+              </div>
+            </div>
+
+            {/* Pass */}
+            <div className="relative rounded-lg p-1 bg-[#66c552] overflow-hidden">
+              <div className="bg-[#364153] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
+                <div className="text-3xl">{sum?.pass || 0}</div>
+                <div className="text-lg mt-2">Pass</div>
+                <div className="text-xs text-gray-300 mt-1">
+                  {(() => {
+                    const total =
+                      (sum?.pass || 0) + (sum?.fail || 0) + (sum?.error || 0);
+                    const pct =
+                      total > 0
+                        ? Math.round(((sum?.pass || 0) / total) * 100)
+                        : 0;
+                    return `Represents ${pct}% of the total`;
+                  })()}
+                </div>
+                <svg
+                  className="absolute right-0 top-0 translate-x-10 -translate-y-8 h-32 w-32 opacity-20 text-green-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="#66c552"
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M18 8.5L10.5 17l-5-5"
+                    stroke="#66c552"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            {/* Fail */}
+            <div className="relative rounded-lg p-1 bg-[#f77575] overflow-hidden">
+              <div className="bg-[#364153] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
+                <div className="text-3xl">{sum?.fail || 0}</div>
+                <div className="text-lg mt-2">Fail</div>
+                <div className="text-xs text-gray-300 mt-1">
+                  {(() => {
+                    const total =
+                      (sum?.pass || 0) + (sum?.fail || 0) + (sum?.error || 0);
+                    const pct =
+                      total > 0
+                        ? Math.round(((sum?.fail || 0) / total) * 100)
+                        : 0;
+                    return `Represents ${pct}% of the total`;
+                  })()}
+                </div>
+                <svg
+                  className="absolute right-0 top-0 translate-x-10 -translate-y-8 h-32 w-32 opacity-20 text-red-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="#f77575"
+                    strokeWidth="2"
+                  />
+                    <path
+                      d="M18 6L6 18M6 6l12 12"
+                      stroke="#f77575"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                </svg>
+              </div>
+            </div>
+
+            {/* Error */}
+            <div className="relative rounded-lg p-1 bg-[#d09a00] overflow-hidden">
+              <div className="bg-[#364153] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
+                <div className="text-3xl">{sum?.error || 0}</div>
+                <div className="text-lg mt-2">Error</div>
+                <div className="text-xs text-gray-300 mt-1">
+                  {(() => {
+                    const total =
+                      (sum?.pass || 0) + (sum?.fail || 0) + (sum?.error || 0);
+                    const pct =
+                      total > 0
+                        ? Math.round(((sum?.error || 0) / total) * 100)
+                        : 0;
+                    return `Represents ${pct}% of the total`;
+                  })()}
+                </div>
+                <svg
+                  className="absolute right-0 top-0 translate-x-10 -translate-y-8 h-32 w-32 opacity-20 text-yellow-400"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="#d09a00"
+                    strokeWidth="2"
+                  />
+                  <path
+                    d="M12 8v5"
+                    stroke="#d09a00"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  <path
+                    d="M12 16h.01"
+                    stroke="#d09a00"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </div>
+            </div>
           </div>
         </div>
       </div>
-      <div className="px-4 py-8 flex justify-center">
+      <div className="px-4 py-8 flex justify-center mt-[-70px] mb-[-90px]">
         <div className="flex w-3/4 h-96 items-center justify-between">
           <div className="w-1/2 h-full flex flex-col items-center justify-center">
-            <p>Test Results Distribution</p>
-            <Doughnut data={doughnutChartData} options={doughnutOptions} />
+            {/* Doughnut wrapper: relative so we can overlay center text */}
+            <div className="relative w-64 h-64 flex items-center justify-center bg-[#364153] rounded-full p-4">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Doughnut data={doughnutChartData} options={doughnutOptions} />
+              </div>
+
+              {/* Center overlay text */}
+              <div className="absolute text-center text-white pointer-events-none">
+                <div className="text-sm mb-2">Test Result</div>
+                <div className="text-4xl font-bold">
+                  {(() => {
+                    const total =
+                      (sum?.pass || 0) + (sum?.fail || 0) + (sum?.error || 0);
+                    const pct =
+                      total > 0
+                        ? Math.round(((sum?.pass || 0) / total) * 100)
+                        : 0;
+                    return `${pct}%`;
+                  })()}
+                </div>
+                <div className="text-sm mt-2">Pass</div>
+              </div>
+            </div>
           </div>
           <div className="w-3/4 h-full ml-24 flex flex-col items-center justify-center">
-            <p>Test Results Overview</p>
             <Bar data={barChartData} options={barOptions} />
           </div>
         </div>
@@ -285,16 +437,16 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
           </h2>
           <div className="flex items-center justify-start w-full">
             <label className="mr-2 font-medium">Filter by Name Test :</label>
-            <input
-              type="text"
-              placeholder="Search Name Test..."
-              value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-2 w-64 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div className="w-64">
+              <SearchInput
+                placeholder="Search Name Test..."
+                value={filterText}
+                onChange={(value) => setFilterText(value)}
+              />
+            </div>
           </div>
         </div>
-        <table className="w-full mt-6 font-bold">
+        <table className="w-full mt-6 font-bold rounded-lg overflow-hidden">
           <thead>
             <tr className="bg-gray-800 text-white">
               <th
@@ -385,7 +537,9 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                     style={{ width: "8%" }}
                     className="py-2 text-center bg-[#f0f06c] cursor-pointer"
                     onClick={() =>
-                      data.detailerror ? onDetail("error", data.detailerror, data.name) : null
+                      data.detailerror
+                        ? onDetail("error", data.detailerror, data.name)
+                        : null
                     }
                   >
                     {data.error}
