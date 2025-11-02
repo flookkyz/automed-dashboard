@@ -87,7 +87,7 @@ function NewNavbarpage() {
         style={{ scrollbarGutter: "stable" }}
       >
         <div
-          className="text-center font-bold text-4xl py-4 cursor-pointer"
+          className="text-center font-bold text-4xl py-4 cursor-pointer hover:scale-110 transition-transform duration-200"
           onClick={() => handleSelect()}
         >
           Dashboard

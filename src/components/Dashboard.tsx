@@ -240,16 +240,41 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
           </p>
           <div className="flex items-center justify-end">
             <label className="mr-2">Select Date : </label>
-            <DatePicker
-              selected={startDate}
-              onChange={(date) => {
-                setStartDate(date);
-              }}
-              includeDates={data}
-              dateFormat="dd/MM/yyyy"
-              placeholderText="This only includes today and tomorrow"
-              className="border border-b-gray-300 rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400"
-            />
+            <div className="relative inline-block cursor-pointer">
+              <svg
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none h-5 w-5 z-10"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <rect
+                  x="3"
+                  y="5"
+                  width="18"
+                  height="16"
+                  rx="2"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                />
+                <path
+                  d="M16 3v4M8 3v4"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <DatePicker
+                selected={startDate}
+                onChange={(date) => {
+                  setStartDate(date);
+                }}
+                includeDates={data}
+                dateFormat="dd/MM/yyyy"
+                placeholderText="This only includes today and tomorrow"
+                className="w-48 text-center border border-b-gray-300 rounded-md pl-9 p-2 bg-white text-black focus:outline-none focus:ring-none relative z-0"
+              />
+            </div>
           </div>
         </div>
         <p className="mb-2 text-center text-2xl font-bold">
@@ -259,8 +284,8 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
           {/* Summary cards grid */}
           <div className="grid grid-cols-4 gap-6 font-bold">
             {/* Total */}
-            <div className="relative rounded-lg p-1 bg-gray-300 overflow-hidden">
-              <div className="bg-[#364153] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
+            <div className="relative rounded-lg p-1 bg-gray-400 overflow-hidden hover:scale-105 transition-transform duration-200">
+              <div className="bg-[#364153] hover:bg-gray-400 rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
                 <div className="text-3xl">
                   {(sum?.pass || 0) + (sum?.fail || 0) + (sum?.error || 0)}
                 </div>
@@ -270,8 +295,8 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
             </div>
 
             {/* Pass */}
-            <div className="relative rounded-lg p-1 bg-[#66c552] overflow-hidden">
-              <div className="bg-[#364153] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
+            <div className="relative rounded-lg p-1 bg-[#66c552] overflow-hidden hover:scale-105 transition-transform duration-200">
+              <div className="bg-[#364153] hover:bg-[#66c552] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
                 <div className="text-3xl">{sum?.pass || 0}</div>
                 <div className="text-lg mt-2">Pass</div>
                 <div className="text-xs text-gray-300 mt-1">
@@ -310,8 +335,8 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
             </div>
 
             {/* Fail */}
-            <div className="relative rounded-lg p-1 bg-[#f77575] overflow-hidden">
-              <div className="bg-[#364153] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
+            <div className="relative rounded-lg p-1 bg-[#f77575] overflow-hidden hover:scale-105 transition-transform duration-200">
+              <div className="bg-[#364153] hover:bg-[#f77575] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
                 <div className="text-3xl">{sum?.fail || 0}</div>
                 <div className="text-lg mt-2">Fail</div>
                 <div className="text-xs text-gray-300 mt-1">
@@ -338,20 +363,20 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                     stroke="#f77575"
                     strokeWidth="2"
                   />
-                    <path
-                      d="M18 6L6 18M6 6l12 12"
-                      stroke="#f77575"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
+                  <path
+                    d="M18 6L6 18M6 6l12 12"
+                    stroke="#f77575"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
                 </svg>
               </div>
             </div>
 
             {/* Error */}
-            <div className="relative rounded-lg p-1 bg-[#d09a00] overflow-hidden">
-              <div className="bg-[#364153] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
+            <div className="relative rounded-lg p-1 bg-[#d09a00] overflow-hidden hover:scale-105 transition-transform duration-200">
+              <div className="bg-[#364153] hover:bg-[#d09a00] rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
                 <div className="text-3xl">{sum?.error || 0}</div>
                 <div className="text-lg mt-2">Error</div>
                 <div className="text-xs text-gray-300 mt-1">

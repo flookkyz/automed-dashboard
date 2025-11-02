@@ -221,14 +221,41 @@ function SummaryDashboard() {
           </div>
           <div>
             <label className="mr-2">Select Date : </label>
-            <DatePicker
-              selected={startDate}
-              onChange={(date) => {
-                setStartDate(date);
-              }}
-              dateFormat="dd/MM/yyyy"
-              className="border border-b-gray-300 rounded-md p-2 bg-white dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 dark:border-gray-400"
-            />
+            {/* DatePicker with inline calendar icon */}
+            <div className="relative inline-block cursor-pointer">
+              <svg
+                className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none h-5 w-5 z-10"
+                viewBox="0 0 24 24"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <rect
+                  x="3"
+                  y="5"
+                  width="18"
+                  height="16"
+                  rx="2"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                />
+                <path
+                  d="M16 3v4M8 3v4"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+              <DatePicker
+                selected={startDate}
+                onChange={(date) => {
+                  setStartDate(date);
+                }}
+                dateFormat="dd/MM/yyyy"
+                maxDate={new Date()}
+                className="w-48 text-center border border-b-gray-300 rounded-md pl-9 p-2 bg-white text-black focus:outline-none focus:ring-none relative z-0"
+              />
+            </div>
           </div>
         </div>
 
@@ -285,7 +312,7 @@ function SummaryDashboard() {
                     >
                       {/* Styled doughnut similar to Dashboard.tsx: dark circular background, thicker ring, center overlay */}
                       <div className="relative w-full h-full flex items-center justify-center bg-[#364153] rounded-full p-4">
-                        <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="absolute inset-0 flex items-center justify-center hover:scale-105 transition-transform duration-200">
                           <Doughnut
                             data={doughnutChartData}
                             options={{
@@ -305,8 +332,14 @@ function SummaryDashboard() {
                           <div className="text-[1vw] mb-2">Test Result</div>
                           <div className="text-[2vw] font-bold">
                             {(() => {
-                              const total = (test.pass || 0) + (test.fail || 0) + (test.error || 0);
-                              const pct = total > 0 ? Math.round(((test.pass || 0) / total) * 100) : 0;
+                              const total =
+                                (test.pass || 0) +
+                                (test.fail || 0) +
+                                (test.error || 0);
+                              const pct =
+                                total > 0
+                                  ? Math.round(((test.pass || 0) / total) * 100)
+                                  : 0;
                               return `${pct}%`;
                             })()}
                           </div>
