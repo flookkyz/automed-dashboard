@@ -343,7 +343,7 @@ function SummaryDashboard() {
                               return `${pct}%`;
                             })()}
                           </div>
-                          <div className="text-[1vw] mt-2">Total</div>
+                          <div className="text-[1vw] mt-2">Pass</div>
                         </div>
                       </div>
                     </div>
