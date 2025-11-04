@@ -280,9 +280,36 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
         <p className="mb-2 text-center text-2xl font-bold">
           Test Results Distribution
         </p>
-        <div className="w-full mt-6 px-12">
+        <div className="w-full mt-6 px-12 flex justify-between items-center sm:flex-col md:flex-row">
           {/* Summary cards grid */}
-          <div className="grid grid-cols-4 gap-6 font-bold">
+
+          <div className="w-[30vw] h-full flex flex-col items-center justify-center ">
+            {/* Doughnut wrapper: relative so we can overlay center text */}
+            <div className="relative w-[20vw] h-[20vw] flex items-center justify-center bg-[#364153] rounded-full p-4">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Doughnut data={doughnutChartData} options={doughnutOptions} />
+              </div>
+
+              {/* Center overlay text */}
+              <div className="absolute text-center text-white pointer-events-none">
+                <div className="text-sm mb-2">Test Result</div>
+                <div className="text-4xl font-bold">
+                  {(() => {
+                    const total =
+                      (sum?.pass || 0) + (sum?.fail || 0) + (sum?.error || 0);
+                    const pct =
+                      total > 0
+                        ? Math.round(((sum?.pass || 0) / total) * 100)
+                        : 0;
+                    return `${pct}%`;
+                  })()}
+                </div>
+                <div className="text-sm mt-2">Pass</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-[50vw] grid grid-cols-2 gap-6 font-bold">
             {/* Total */}
             <div className="relative rounded-lg p-1 bg-gray-400 overflow-hidden hover:scale-105 transition-transform duration-200">
               <div className="bg-[#364153] hover:bg-gray-400 rounded-lg p-6 h-32 flex flex-col items-center justify-center text-white relative overflow-hidden">
@@ -423,38 +450,13 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
           </div>
         </div>
       </div>
-      <div className="px-4 py-8 flex justify-center mt-[-70px] mb-[-90px]">
+      {/* <div className="px-4 py-8 flex justify-center mt-[-70px] mb-[-90px]">
         <div className="flex w-3/4 h-96 items-center justify-between">
-          <div className="w-1/2 h-full flex flex-col items-center justify-center">
-            {/* Doughnut wrapper: relative so we can overlay center text */}
-            <div className="relative w-64 h-64 flex items-center justify-center bg-[#364153] rounded-full p-4">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Doughnut data={doughnutChartData} options={doughnutOptions} />
-              </div>
-
-              {/* Center overlay text */}
-              <div className="absolute text-center text-white pointer-events-none">
-                <div className="text-sm mb-2">Test Result</div>
-                <div className="text-4xl font-bold">
-                  {(() => {
-                    const total =
-                      (sum?.pass || 0) + (sum?.fail || 0) + (sum?.error || 0);
-                    const pct =
-                      total > 0
-                        ? Math.round(((sum?.pass || 0) / total) * 100)
-                        : 0;
-                    return `${pct}%`;
-                  })()}
-                </div>
-                <div className="text-sm mt-2">Pass</div>
-              </div>
-            </div>
-          </div>
           <div className="w-3/4 h-full ml-24 flex flex-col items-center justify-center">
             <Bar data={barChartData} options={barOptions} />
           </div>
         </div>
-      </div>
+      </div> */}
       <div className="p-8">
         <div className="mb-4 flex justify-between items-center flex-col">
           <h2 className="text-xl font-bold justify-start w-full mb-4">

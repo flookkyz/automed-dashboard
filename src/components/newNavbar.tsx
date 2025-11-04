@@ -119,9 +119,11 @@ function NewNavbarpage() {
               } else {
                 const hasFail = childFlags.includes("fail");
                 const hasError = childFlags.includes("error");
+                const hasPass = childFlags.includes("pass");
                 if (hasFail && hasError) mainFlag = "all";
                 else if (hasFail) mainFlag = "fail";
                 else if (hasError) mainFlag = "error";
+                else if (hasPass) mainFlag = "pass";
                 else mainFlag = undefined;
               }
 

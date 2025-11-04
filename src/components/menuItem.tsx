@@ -112,6 +112,9 @@ const MenuItem = memo((props: MenuItemProps) => {
             {(flag === "error" || flag === "all") && (
               <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-yellow-400" />
             )}
+            {flag === "pass" && (
+              <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-green-500" />
+            )}
           </div>
 
           {/* Right: vertical chevron (toggle) */}
