@@ -547,7 +547,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                 {data.fail > 0 ? (
                   <td
                     style={{ width: "8%" }}
-                    className="py-2 text-center bg-[#f77575] cursor-pointer"
+                    className="py-2 text-center bg-[#f77575] cursor-pointer text-gray-800"
                     onClick={() => onDetail("fail", data.detailfail, data.name)}
                   >
                     {data.fail}
@@ -560,7 +560,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                 {data.error > 0 ? (
                   <td
                     style={{ width: "8%" }}
-                    className="py-2 text-center bg-[#f0f06c] cursor-pointer"
+                    className="py-2 text-center bg-[#f0f06c] cursor-pointer text-gray-800"
                     onClick={() =>
                       data.detailerror
                         ? onDetail("error", data.detailerror, data.name)
