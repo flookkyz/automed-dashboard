@@ -59,8 +59,8 @@
 }
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #364153;
+  --foreground: #ededed;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -83,8 +83,10 @@ body {
    when the page has no scrollbar. This makes the navbar width appear consistent
    whether or not the main content currently scrolls. */
 html {
-  overflow-y: scroll; /* always show vertical scrollbar space */
-  scrollbar-gutter: stable; /* reserve gutter where supported */
+  overflow-y: scroll;
+  /* always show vertical scrollbar space */
+  scrollbar-gutter: stable;
+  /* reserve gutter where supported */
 }
 
 /* Make sure all elements inherit Nunito font */

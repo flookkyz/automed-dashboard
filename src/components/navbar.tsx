@@ -155,7 +155,7 @@ function navbar() {
             <input
               type="text"
               placeholder="Filter products..."
-              className="w-[90%] p-2 mb-2 ring-0 border-0 rounded rounded-md p-2 bg-white text-black dark:bg-gray-700 dark:text-white focus:outline-none focus:ring-0 focus:ring-blue-400 focus:border-transparent font-nunito"
+              className="w-[90%] p-2 mb-2 ring-0 border-0 rounded rounded-md p-2 bg-gray-700 text-white focus:outline-none focus:ring-0 focus:ring-blue-400 focus:border-transparent font-nunito"
               onChange={(e) => {
                 const filter = e.target.value.toLowerCase();
                 setNewProducts(
@@ -185,7 +185,7 @@ function navbar() {
           </div>
           <ul>
             {newProducts.length === 0 ? (
-              <li className="block pt-4 p-2 border-b border-gray-600 dark:border-gray-400 border-b-2">
+              <li className="block pt-4 p-2 border-b border-gray-400 border-b-2">
                 No products available
               </li>
             ) : (
@@ -216,7 +216,7 @@ function navbar() {
                   <React.Fragment key={index}>
                     <li>
                       <div
-                        className={`flex items-center justify-between block pt-4 p-2 border-b-2 border-gray-600 dark:border-gray-600 cursor-pointer ${
+                        className={`flex items-center justify-between block pt-4 p-2 border-b-2 border-gray-600 cursor-pointer ${
                           selectedProduct.main === product.mainProduct &&
                           !selectedProduct.sub
                             ? "bg-gray-600 text-blue-300"
@@ -276,7 +276,7 @@ function navbar() {
                           return (
                             <li key={`${index}-${subIndex}`}>
                               <a
-                                className={`block pl-8 pt-2 p-2 border-b border-gray-600 dark:border-gray-600 cursor-pointer ${
+                                className={`block pl-8 pt-2 p-2 border-b border-gray-600 cursor-pointer ${
                                   selectedProduct.main ===
                                     product.mainProduct &&
                                   selectedProduct.sub === subProduct

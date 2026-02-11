@@ -22,7 +22,7 @@ ChartJS.register(
   BarElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
 );
 
 interface DashboardProps {
@@ -59,7 +59,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       fail: acc.fail + curr.fail,
       error: acc.error + curr.error,
     }),
-    { pass: 0, fail: 0, error: 0 }
+    { pass: 0, fail: 0, error: 0 },
   );
 
   const onDetail = (action: String, data: any, name: string) => {
@@ -84,7 +84,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
   const sortedNametest = product?.nametest
     ? [...product.nametest]
         .filter((item: NameTest) =>
-          item.name.toLowerCase().includes(filterText.toLowerCase())
+          item.name.toLowerCase().includes(filterText.toLowerCase()),
         )
         .sort((a: any, b: any) => {
           let aValue = a[sortKey];
@@ -108,7 +108,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       setStartDate(null);
       try {
         const response = await fetch(
-          `/api/getdatefromtest?mainproduct=${mainproduct}&subproduct=${subproduct}`
+          `/api/getdatefromtest?mainproduct=${mainproduct}&subproduct=${subproduct}`,
         );
         if (!response.ok) {
           throw new Error("Network response was not ok");
@@ -143,7 +143,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
         const response = await fetch(
           `/api/gettestdata?mainproduct=${mainproduct}&subproduct=${subproduct}&date=${
             startDate.toISOString().split("T")[0]
-          }`
+          }`,
         );
         const data = await response.json();
 
@@ -536,10 +536,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
           </thead>
           <tbody>
             {sortedNametest?.map((data: NameTest, index: number) => (
-              <tr
-                key={index}
-                className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-500 dark:hover:bg-gray-600"
-              >
+              <tr key={index} className="bg-gray-500 hover:bg-gray-600">
                 <td style={{ width: "40%" }} className="py-2 px-4">
                   {data.name}
                 </td>
@@ -592,7 +589,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       </div>
       {detailPopup && (
         <div className="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-500 dark:text-white w-2/3 h-5/6 rounded-xl p-8 flex flex-col items-center justify-center dark:text-black">
+          <div className="bg-gray-500 w-2/3 h-5/6 rounded-xl p-8 flex flex-col items-center justify-center :text-black">
             <div className="text-xl text-center font-bold">{nameDetail}</div>
             <div className="text-xl text-center font-bold">
               {headerDetail} Detail
@@ -621,7 +618,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                           {item.name ? (
                             <tr
                               key={index}
-                              className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-700 dark:text-white"
+                              className="bg-gray-600 hover:bg-gray-700 text-white"
                             >
                               <td className="py-2 px-4 w-1/2">
                                 {item.name.replace("Place Order Tests ›", "")}
@@ -649,7 +646,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                           ) : (
                             <tr
                               key={index}
-                              className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-600 dark:hover:bg-gray-700 dark:text-white"
+                              className="bg-gray-600 hover:bg-gray-700 text-white"
                             >
                               <td className="py-2 px-4">{item}</td>
                             </tr>
