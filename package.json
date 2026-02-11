@@ -6,7 +6,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "docker:build": "set DOCKER_API_VERSION=1.41 && docker-compose build",
+    "docker:up": "set DOCKER_API_VERSION=1.41 && docker-compose up -d",
+    "docker:down": "docker-compose down"
   },
   "dependencies": {
     "@internationalized/date": "^3.7.0",

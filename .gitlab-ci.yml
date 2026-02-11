@@ -4,6 +4,7 @@ stages:
 
 variables:
   IMAGE_NAME: "automed-dashboard-ui"
+  DOCKER_API_VERSION: "1.41"
 
 build:
   stage: build
