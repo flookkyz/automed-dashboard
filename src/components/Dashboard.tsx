@@ -457,7 +457,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
           </div>
         </div>
       </div> */}
-      <div className="p-8">
+      <div className="p-4 md:p-8 overflow-x-auto">
         <div className="mb-4 flex justify-between items-center flex-col">
           <h2 className="text-xl font-bold justify-start w-full mb-4">
             Test Results Table
@@ -473,7 +473,8 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
             </div>
           </div>
         </div>
-        <table className="w-full mt-6 font-bold rounded-lg overflow-hidden">
+        <div className="overflow-x-auto">
+        <table className="w-full mt-6 font-bold rounded-lg overflow-hidden min-w-[800px]">
           <thead>
             <tr className="bg-gray-800 text-white">
               <th
@@ -537,7 +538,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
           <tbody>
             {sortedNametest?.map((data: NameTest, index: number) => (
               <tr key={index} className="bg-gray-500 hover:bg-gray-600">
-                <td style={{ width: "40%" }} className="py-2 px-4">
+                <td style={{ width: "40%" }} className="py-2 px-4 break-words">
                   {data.name}
                 </td>
                 <td style={{ width: "8%" }} className="py-2 text-center">
@@ -586,31 +587,32 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
       {detailPopup && (
-        <div className="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-50 flex items-center justify-center">
-          <div className="bg-gray-500 w-2/3 h-5/6 rounded-xl p-8 flex flex-col items-center justify-center :text-black">
-            <div className="text-xl text-center font-bold">{nameDetail}</div>
-            <div className="text-xl text-center font-bold">
+        <div className="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-500 w-full max-w-4xl h-5/6 max-h-[90vh] rounded-xl p-4 md:p-8 flex flex-col overflow-hidden">
+            <div className="text-lg md:text-xl text-center font-bold truncate px-2">{nameDetail}</div>
+            <div className="text-lg md:text-xl text-center font-bold mb-4">
               {headerDetail} Detail
             </div>
-            <div className="w-full mt-6 h-96 ">
-              <table className="w-full">
+            <div className="w-full flex-1 overflow-hidden">
+              <table className="w-full table-fixed">
                 <thead>
                   {detailTest[0].name ? (
                     <tr className="bg-gray-800 text-white">
-                      <th className="py-2 px-4 w-1/2">name test</th>
+                      <th className="py-2 px-4 w-1/2 ">name test</th>
                       <th className="py-2 px-4 ">detail</th>
                     </tr>
                   ) : (
                     <tr className="bg-gray-800 text-white">
-                      <th className="py-2 px-4">detail</th>
+                      <th className="py-2 px-4 ">detail</th>
                     </tr>
                   )}
                 </thead>
               </table>
-              <div className="overflow-y-auto h-[45vh]">
-                <table className="w-full">
+              <div className="overflow-y-auto" style={{maxHeight: 'calc(100% - 50px)'}}>
+                <table className="w-full table-fixed">
                   <tbody>
                     {Array.isArray(detailTest) &&
                       detailTest.map((item: any, index: number) => (
@@ -620,24 +622,26 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                               key={index}
                               className="bg-gray-600 hover:bg-gray-700 text-white"
                             >
-                              <td className="py-2 px-4 w-1/2">
+                              <td className="py-2 px-4 w-1/2 break-words align-top">
                                 {item.name.replace("Place Order Tests ›", "")}
                               </td>
-                              <td className="py-2 px-4 border-l border-black">
-                                {item.error.split("Call log")[0]}
-                                <br />
-                                {item.error.split("Call log")[1]
-                                  ? `Call log ${
-                                      item.error.split("Call log")[1]
-                                    }`
-                                  : null}
+                              <td className="py-2 px-4 border-l border-black break-words align-top">
+                                <div className="break-all">
+                                  {item.error.split("Call log")[0]}
+                                  <br />
+                                  {item.error.split("Call log")[1]
+                                    ? `Call log ${
+                                        item.error.split("Call log")[1]
+                                      }`
+                                    : null}
+                                </div>
                                 {item.expected ? (
-                                  <div className="text-green-500">
+                                  <div className="text-green-500 break-all mt-2">
                                     Expected: {item.expected}
                                   </div>
                                 ) : null}
                                 {item.received ? (
-                                  <div className="text-red-500">
+                                  <div className="text-red-500 break-all mt-2">
                                     Received: {item.received}
                                   </div>
                                 ) : null}
@@ -648,7 +652,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                               key={index}
                               className="bg-gray-600 hover:bg-gray-700 text-white"
                             >
-                              <td className="py-2 px-4">{item}</td>
+                              <td className="py-2 px-4 break-words">{item}</td>
                             </tr>
                           )}
                         </>

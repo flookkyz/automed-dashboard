@@ -192,7 +192,7 @@ function SummaryDashboard() {
   return (
     <>
       <div className="p-4">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex justify-center text-white font-bold text-l">
             <div
               className={`w-[5vw] p-2 border rounded-l-lg text-center ${
@@ -311,7 +311,7 @@ function SummaryDashboard() {
                       onClick={() => handleProductClick(test)}
                     >
                       {/* Styled doughnut similar to Dashboard.tsx: dark circular background, thicker ring, center overlay */}
-                      <div className="relative w-full h-full flex items-center justify-center bg-[#364153] rounded-full p-4">
+                      <div className="relative w-full h-full flex items-center justify-center bg-[#364153] rounded-full p-4 mt-4">
                         <div className="absolute inset-0 flex items-center justify-center hover:scale-105 transition-transform duration-200">
                           <Doughnut
                             data={doughnutChartData}
