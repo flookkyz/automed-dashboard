@@ -1,7 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import SearchInput from "../components/scarchInput";
 import MenuItem from "../components/menuItem";
 import { useRouter } from "next/router";
+import LoadingState from "./LoadingState";
+
+type Flag = "all" | "fail" | "error" | "pass" | undefined;
+
+type SubProduct = string | { name: string; flag?: Flag };
+
+type Product = {
+  mainProduct: string;
+  subProduct?: SubProduct[];
+};
 
 function NewNavbarpage() {
   const router = useRouter();
@@ -9,21 +19,19 @@ function NewNavbarpage() {
   const [activeMain, setActiveMain] = useState<string | undefined>(undefined);
   const [activeSub, setActiveSub] = useState<string | undefined>(undefined);
 
-  const handleSelect = (main?: string, sub?: string) => {
+  const handleSelect = useCallback((main?: string, sub?: string) => {
     setActiveMain(main);
     setActiveSub(sub);
     if (!main) {
       router.push("/");
     } else if (sub) {
-      
       router.push(`/${main}/${sub}`, undefined, { shallow: true });
     } else {
       router.push(`/${main}`, undefined, { shallow: true });
     }
-    console.log("selected:", { mainProduct: main, subProduct: sub });
-  };
-  const [products, setProducts] = useState<any[]>([]);
-  const [originalProducts, setOriginalProducts] = useState<any[]>([]);
+  }, [router]);
+
+  const [originalProducts, setOriginalProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -34,8 +42,9 @@ function NewNavbarpage() {
         if (!response.ok)
           throw new Error(`Network response was not ok: ${response.status}`);
         const data = await response.json();
-        setProducts(data.products || []);
-        setOriginalProducts(data.products || []);
+
+        const products = (data.products || []) as Product[];
+        setOriginalProducts(products);
       } catch (err: any) {
         // eslint-disable-next-line no-console
         console.error("Error fetching products:", err);
@@ -48,39 +57,54 @@ function NewNavbarpage() {
     fetchProducts();
   }, []);
 
-  const handleFilter = (value: string) => {
-    const filter = value.toLowerCase();
+  const handleFilter = useCallback((value: string) => {
     setScarchInputValue(value);
-    if (!filter) {
-      setProducts(originalProducts);
-      return;
-    }
+  }, []);
 
-    const filtered = originalProducts
+  const visibleProducts = useMemo(() => {
+    const filter = scarchInputValue.trim().toLowerCase();
+    if (!filter) return originalProducts;
+
+    return originalProducts
       .map((product) => {
-        // subProduct items may be objects {name, flag} or strings
-        const subs = Array.isArray(product.subProduct)
-          ? product.subProduct
-          : [];
-        const filteredSubProducts = subs.filter((sub: any) => {
+        const subs = Array.isArray(product.subProduct) ? product.subProduct : [];
+
+        const filteredSubProducts = subs.filter((sub) => {
           const name = typeof sub === "string" ? sub : sub?.name;
-          return (
-            typeof name === "string" && name.toLowerCase().includes(filter)
-          );
+          return typeof name === "string" && name.toLowerCase().includes(filter);
         });
 
         if (product.mainProduct?.toLowerCase().includes(filter)) {
-          // keep full product when main matches
-          return { ...product };
-        } else if (filteredSubProducts.length > 0) {
+          return product;
+        }
+
+        if (filteredSubProducts.length > 0) {
           return { ...product, subProduct: filteredSubProducts };
         }
+
         return null;
       })
-      .filter(Boolean);
+      .filter((p): p is Product => Boolean(p));
+  }, [originalProducts, scarchInputValue]);
 
-    setProducts(filtered);
-  };
+  const getMainFlag = useCallback((subProducts: SubProduct[] | undefined): Flag => {
+    const childFlags: Array<Flag> = (subProducts || []).map((c) =>
+      typeof c === "string" ? undefined : c.flag
+    );
+
+    if (childFlags.includes("all")) return "all";
+
+    const hasFail = childFlags.includes("fail");
+    const hasError = childFlags.includes("error");
+    const hasPass = childFlags.includes("pass");
+
+    if (hasFail && hasError) return "all";
+    if (hasFail) return "fail";
+    if (hasError) return "error";
+    if (hasPass) return "pass";
+    return undefined;
+  }, []);
+
   return (
     <>
       <div
@@ -97,43 +121,26 @@ function NewNavbarpage() {
           <SearchInput
             placeholder="Search..."
             value={scarchInputValue}
-            onChange={(value) => handleFilter(value)}
+            onChange={handleFilter}
           />
         </div>
         <div className="py-4 px-1">
           {/* Replace mock data with API-driven products from /api/getnewproductname */}
           {loading ? (
-            <div className="p-4">Loading products...</div>
+            <LoadingState variant="simple" label="Loading products..." />
           ) : errorMsg ? (
             <div className="p-4 text-red-400">
               Error loading products: {errorMsg}
             </div>
           ) : (
-            products.map((p) => {
-              const childFlags: Array<string | undefined> = (
-                p.subProduct || []
-              ).map((c: any) => (typeof c === "string" ? undefined : c.flag));
-
-              let mainFlag: any = undefined;
-              if (childFlags.includes("all")) {
-                mainFlag = "all";
-              } else {
-                const hasFail = childFlags.includes("fail");
-                const hasError = childFlags.includes("error");
-                const hasPass = childFlags.includes("pass");
-                if (hasFail && hasError) mainFlag = "all";
-                else if (hasFail) mainFlag = "fail";
-                else if (hasError) mainFlag = "error";
-                else if (hasPass) mainFlag = "pass";
-                else mainFlag = undefined;
-              }
-
+            visibleProducts.map((p) => {
+              const mainFlag = getMainFlag(p.subProduct);
               return (
                 <MenuItem
                   key={p.mainProduct}
                   mainproduct={p.mainProduct}
                   flag={mainFlag}
-                  subproducts={p.subProduct as any}
+                  subproducts={p.subProduct}
                   onSelect={handleSelect}
                   activeMain={activeMain}
                   activeSub={activeSub}

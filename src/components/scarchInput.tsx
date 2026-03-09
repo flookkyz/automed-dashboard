@@ -1,12 +1,12 @@
 import React, { memo, useRef } from "react";
 
-interface inputProps {
+interface InputProps {
   placeholder: string;
-  value: any;
+  value: string;
   onChange: (value: string) => void;
 }
 
-const SearchInput = memo((props: inputProps) => {
+const SearchInput = memo((props: InputProps) => {
   const { placeholder, value, onChange } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -52,7 +52,7 @@ const SearchInput = memo((props: inputProps) => {
         type="text"
         placeholder={placeholder || "Search"}
         className={`block w-full pl-10 pr-10 py-2 bg-white border border-gray-600 rounded-[7px] text-black focus:outline-none focus:ring-none`}
-        value={value ?? ""}
+        value={value}
         onChange={(e) => onChange(e.target.value)}
       />
 

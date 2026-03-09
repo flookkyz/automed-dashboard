@@ -9,6 +9,8 @@ import {
   Legend,
 } from "chart.js";
 import { useRouter } from "next/router";
+import SearchInput from "./scarchInput";
+import LoadingState from "./LoadingState";
 
 ChartJS.register(CategoryScale, LinearScale, ArcElement, Tooltip, Legend);
 
@@ -75,6 +77,7 @@ export default function MainProductDashboard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResponse | null>(null);
+  const [filterText, setFilterText] = useState<string>("");
 
   useEffect(() => {
     if (!mainproduct) return;
@@ -176,6 +179,12 @@ export default function MainProductDashboard({
     return `${yyyy}-${mm}-${dd}`;
   }, []);
 
+  const filteredRows = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    if (!q) return rows;
+    return rows.filter((r) => r.subproduct.toLowerCase().includes(q));
+  }, [rows, filterText]);
+
   if (!mainproduct) {
     return (
       <div className="p-4">
@@ -194,7 +203,7 @@ export default function MainProductDashboard({
         </div>
 
         {loading ? (
-          <div className="p-4">Loading...</div>
+          <LoadingState variant="overview" label="Loading overview..." />
         ) : error ? (
           <div className="p-4 text-red-400">Error: {error}</div>
         ) : (
@@ -351,6 +360,17 @@ export default function MainProductDashboard({
                 Subproducts
               </h2>
 
+              <div className="mb-4 flex items-center justify-start w-full">
+                <label className="mr-2 font-medium">Search Subproduct :</label>
+                <div className="w-64">
+                  <SearchInput
+                    placeholder="Search subproduct..."
+                    value={filterText}
+                    onChange={(value) => setFilterText(value)}
+                  />
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="w-full mt-6 font-bold rounded-lg overflow-hidden min-w-[800px]">
                   <thead>
@@ -376,14 +396,14 @@ export default function MainProductDashboard({
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.length === 0 ? (
+                    {filteredRows.length === 0 ? (
                       <tr className="bg-gray-500">
                         <td className="py-3 px-4" colSpan={6}>
                           No subproducts found
                         </td>
                       </tr>
                     ) : (
-                      rows.map((r) => (
+                      filteredRows.map((r) => (
                         <tr
                           key={r.subproduct}
                           className="bg-gray-500 hover:bg-gray-600 cursor-pointer"
@@ -391,8 +411,20 @@ export default function MainProductDashboard({
                         >
                           <td className="py-2 px-4 break-words">{r.subproduct}</td>
                           <td className="py-2 text-center">{r.pass}</td>
-                          <td className="py-2 text-center">{r.fail}</td>
-                          <td className="py-2 text-center">{r.error}</td>
+                          {r.fail > 0 ? (
+                            <td className="py-2 text-center bg-[#f77575] text-gray-800">
+                              {r.fail}
+                            </td>
+                          ) : (
+                            <td className="py-2 text-center">{r.fail}</td>
+                          )}
+                          {r.error > 0 ? (
+                            <td className="py-2 text-center bg-[#f0f06c] text-gray-800">
+                              {r.error}
+                            </td>
+                          ) : (
+                            <td className="py-2 text-center">{r.error}</td>
+                          )}
                           <td className="py-2 text-center">{r.total}</td>
                           <td className="py-2 px-4 break-words">
                             {r.date ? (

@@ -14,6 +14,7 @@ import {
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import SearchInput from "./scarchInput";
+import LoadingState from "./LoadingState";
 
 ChartJS.register(
   CategoryScale,
@@ -47,6 +48,8 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
   const [detailTest, setDetailTest] = useState<any[]>([]);
   const [product, setProduct] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingDates, setLoadingDates] = useState<boolean>(false);
+  const [loadingProduct, setLoadingProduct] = useState<boolean>(false);
   const [startDate, setStartDate] = useState<Date | null>(new Date());
   const [data, setData] = useState<any[]>([]);
   const [sortKey, setSortKey] = useState<string>("name");
@@ -107,6 +110,8 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       setData([]);
       setStartDate(null);
       try {
+        setLoadingDates(true);
+        setError(null);
         const response = await fetch(
           `/api/getdatefromtest?mainproduct=${mainproduct}&subproduct=${subproduct}`,
         );
@@ -124,7 +129,10 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
           setData([]);
         }
       } catch (error: any) {
-        if (isMounted) console.log(error.message);
+        if (!isMounted) return;
+        setError(error?.message ?? String(error));
+      } finally {
+        if (isMounted) setLoadingDates(false);
       }
     };
     fetchProducts();
@@ -134,30 +142,38 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
   }, [mainproduct, subproduct]);
 
   useEffect(() => {
+    let isMounted = true;
     const fetchProduct = async () => {
-      if (!mainproduct && !subproduct) return;
+      if (!mainproduct || !subproduct) return;
       try {
-        if (!startDate) {
-          throw new Error("Start date is not selected");
-        }
+        if (!startDate) return;
+        setLoadingProduct(true);
+        setError(null);
+        setProduct(null);
         const response = await fetch(
           `/api/gettestdata?mainproduct=${mainproduct}&subproduct=${subproduct}&date=${
             startDate.toISOString().split("T")[0]
           }`,
         );
         const data = await response.json();
-
+        if (!isMounted) return;
         setProduct(data);
       } catch (error) {
+        if (!isMounted) return;
         if (error instanceof Error) {
           setError(error.message);
         } else {
           setError(String(error));
         }
+      } finally {
+        if (isMounted) setLoadingProduct(false);
       }
     };
     fetchProduct();
     console.log("product = ", product);
+    return () => {
+      isMounted = false;
+    };
   }, [mainproduct, subproduct, startDate]);
 
   const doughnutChartData = {
@@ -229,6 +245,11 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
     },
   };
 
+  const isLoading = loadingDates || loadingProduct;
+  if (isLoading) {
+    return <LoadingState variant="dashboard" label="Loading dashboard..." />;
+  }
+
   return (
     <>
       <div className="p-4">
@@ -270,6 +291,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                   setStartDate(date);
                 }}
                 includeDates={data}
+                disabled={loadingDates}
                 dateFormat="dd/MM/yyyy"
                 placeholderText="This only includes today and tomorrow"
                 className="w-48 text-center border border-b-gray-300 rounded-md pl-9 p-2 bg-white text-black focus:outline-none focus:ring-none relative z-0"
@@ -277,6 +299,10 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
             </div>
           </div>
         </div>
+
+        {error ? (
+          <div className="px-4 py-2 text-red-400">Error: {error}</div>
+        ) : null}
         <p className="mb-2 text-center text-2xl font-bold">
           Test Results Distribution
         </p>

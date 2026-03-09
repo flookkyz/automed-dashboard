@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { set } from "react-datepicker/dist/date_utils";
+import LoadingState from "./LoadingState";
 
 function navbar() {
   const [isOpen, setIsOpen] = useState(true);
@@ -12,6 +12,7 @@ function navbar() {
   const [newProducts, setNewProducts] = useState<any[]>([]);
   const [originalNewProducts, setOriginalNewProducts] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [openIndexes, setOpenIndexes] = useState<{ [key: string]: boolean }>(
     {}
   );
@@ -63,6 +64,8 @@ function navbar() {
   useEffect(() => {
     const fetchNewProducts = async () => {
       try {
+        setLoading(true);
+        setError(null);
         const response = await fetch("/api/getnewproductname");
         if (!response.ok) {
           throw new Error("Network response was not ok");
@@ -81,6 +84,8 @@ function navbar() {
         }
       } catch (error: any) {
         setError(error.message);
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -151,11 +156,17 @@ function navbar() {
           </h1>
         </div>
         <div className={`overflow-y-auto ${isOpen ? "block" : "hidden"}`}>
+          {loading ? (
+            <LoadingState variant="simple" label="Loading products..." />
+          ) : error ? (
+            <div className="p-4 text-red-400">Error loading products: {error}</div>
+          ) : null}
           <div className="flex items-center justify-center mt-2">
             <input
               type="text"
               placeholder="Filter products..."
               className="w-[90%] p-2 mb-2 ring-0 border-0 rounded rounded-md p-2 bg-gray-700 text-white focus:outline-none focus:ring-0 focus:ring-blue-400 focus:border-transparent font-nunito"
+              disabled={loading}
               onChange={(e) => {
                 const filter = e.target.value.toLowerCase();
                 setNewProducts(
@@ -184,7 +195,7 @@ function navbar() {
             />
           </div>
           <ul>
-            {newProducts.length === 0 ? (
+            {loading ? null : newProducts.length === 0 ? (
               <li className="block pt-4 p-2 border-b border-gray-400 border-b-2">
                 No products available
               </li>

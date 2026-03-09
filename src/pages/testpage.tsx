@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import SearchInput from "../components/scarchInput";
 import MenuItem from "../components/menuItem";
+import LoadingState from "../components/LoadingState";
 
 function testpage() {
   const [scarchInputValue, setScarchInputValue] = useState("");
@@ -85,7 +86,7 @@ function testpage() {
         <div className="py-4 px-1">
           {/* Replace mock data with API-driven products from /api/getnewproductname */}
           {loading ? (
-            <div className="p-4">Loading products...</div>
+            <LoadingState variant="simple" label="Loading products..." />
           ) : errorMsg ? (
             <div className="p-4 text-red-400">
               Error loading products: {errorMsg}

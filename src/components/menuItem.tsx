@@ -63,7 +63,16 @@ const MenuItem = memo((props: MenuItemProps) => {
     e?.stopPropagation();
     // If the item is already active, ignore duplicate clicks.
     if (isActive) return;
-    if (onClick) onClick();
+
+    // Prefer explicit onClick (back-compat), otherwise fall back to onSelect for sub items.
+    if (onClick) {
+      onClick();
+      return;
+    }
+
+    if (isSub && mainproduct && subproduct) {
+      onSelect?.(mainproduct, subproduct);
+    }
   };
 
   const handleMainClick = (e?: React.MouseEvent) => {
@@ -93,12 +102,8 @@ const MenuItem = memo((props: MenuItemProps) => {
               ? "py-2 px-2 cursor-pointer"
               : "py-2 px-2 cursor-pointer"
           } ${className ?? ""}`}
-          onClick={
-            isSub ? handleLabelClick : handleMainClick
-          }
-          role={
-            isSub && onClick ? "button" : "button"
-          }
+          onClick={isSub ? handleLabelClick : handleMainClick}
+          role="button"
         >
           {/* Left: label */}
           <div className={`flex-1`}>
@@ -169,9 +174,12 @@ const MenuItem = memo((props: MenuItemProps) => {
                 return (
                   <MenuItem
                     key={child}
+                    mainproduct={mainproduct}
                     subproduct={child}
-                    onClick={() => onSelect?.(mainproduct, child)}
+                    onSelect={onSelect}
                     active={childActive}
+                    activeMain={activeMain}
+                    activeSub={activeSub}
                   />
                 );
               }
@@ -180,11 +188,14 @@ const MenuItem = memo((props: MenuItemProps) => {
               return (
                 <MenuItem
                   key={child.name}
+                  mainproduct={mainproduct}
                   subproduct={child.name}
                   flag={child.flag}
                   className="pl-6"
-                  onClick={() => onSelect?.(mainproduct, child.name)}
+                  onSelect={onSelect}
                   active={childActive}
+                  activeMain={activeMain}
+                  activeSub={activeSub}
                 />
               );
             })}
