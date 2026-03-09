@@ -17,6 +17,29 @@ type ResponseData = {
 	errors: ErrorItem[];
 };
 
+const CACHE_TTL_MS = 15_000;
+const cache = new Map<string, { expiresAt: number; data: ResponseData }>();
+
+async function asyncPool<T, R>(
+	items: T[],
+	concurrency: number,
+	worker: (item: T) => Promise<R>
+): Promise<R[]> {
+	const results: R[] = new Array(items.length);
+	let nextIndex = 0;
+
+	const runners = Array.from({ length: Math.max(1, concurrency) }, async () => {
+		while (true) {
+			const current = nextIndex++;
+			if (current >= items.length) break;
+			results[current] = await worker(items[current]);
+		}
+	});
+
+	await Promise.all(runners);
+	return results;
+}
+
 function getSingleQueryValue(value: string | string[] | undefined): string | undefined {
 	if (typeof value === "string") return value;
 	if (Array.isArray(value)) return value[0];
@@ -38,6 +61,11 @@ export default async function handler(
 
 	if (!mainProduct) {
 		return res.status(400).json({ error: "Missing mainProduct parameter" });
+	}
+
+	const cached = cache.get(mainProduct);
+	if (cached && cached.expiresAt > Date.now()) {
+		return res.status(200).json(cached.data);
 	}
 
 	try {
@@ -62,33 +90,44 @@ export default async function handler(
 
 		const errors: ErrorItem[] = [];
 
-		const subproducts = await Promise.all(
-			subproductNames.map(async (subproduct) => {
-				try {
-					const latest = await db.collection(subproduct).findOne(
-						{ mainproduct: mainProduct },
-						{
-							sort: { date: -1 },
-							projection: { _id: 0 },
-						}
-					);
+		const subproducts = await asyncPool(subproductNames, 10, async (subproduct) => {
+			try {
+				const latest = await db.collection(subproduct).findOne(
+					{ mainproduct: mainProduct },
+					{
+						sort: { date: -1 },
+						projection: {
+							_id: 0,
+							date: 1,
+							time: 1,
+							mainproduct: 1,
+							"nametest.name": 1,
+							"nametest.pass": 1,
+							"nametest.fail": 1,
+							"nametest.error": 1,
+							"nametest.time": 1,
+						},
+					}
+				);
 
-					return { subproduct, latest } satisfies SubproductLatest;
-				} catch (e: any) {
-					errors.push({
-						subproduct,
-						error: e?.message ? String(e.message) : "Failed to query subproduct collection",
-					});
-					return { subproduct, latest: null } satisfies SubproductLatest;
-				}
-			})
-		);
+				return { subproduct, latest } satisfies SubproductLatest;
+			} catch (e: any) {
+				errors.push({
+					subproduct,
+					error: e?.message ? String(e.message) : "Failed to query subproduct collection",
+				});
+				return { subproduct, latest: null } satisfies SubproductLatest;
+			}
+		});
 
-		return res.status(200).json({
+		const payload: ResponseData = {
 			mainProduct,
 			subproducts,
 			errors,
-		});
+		};
+
+		cache.set(mainProduct, { expiresAt: Date.now() + CACHE_TTL_MS, data: payload });
+		return res.status(200).json(payload);
 	} catch (e: any) {
 		return res.status(500).json({
 			error: "Internal Server Error",
