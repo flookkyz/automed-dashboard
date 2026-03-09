@@ -15,6 +15,7 @@ function NewNavbarpage() {
     if (!main) {
       router.push("/");
     } else if (sub) {
+      
       router.push(`/${main}/${sub}`, undefined, { shallow: true });
     } else {
       router.push(`/${main}`, undefined, { shallow: true });

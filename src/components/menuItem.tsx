@@ -66,6 +66,15 @@ const MenuItem = memo((props: MenuItemProps) => {
     if (onClick) onClick();
   };
 
+  const handleMainClick = (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+
+    // Select the main item (navigates to /{main} in parent).
+    if (!isActive) {
+      onSelect?.(mainproduct);
+    }
+  };
+
   const handleToggle = (e?: React.MouseEvent) => {
     e?.stopPropagation();
     setOpen((s) => !s);
@@ -82,13 +91,13 @@ const MenuItem = memo((props: MenuItemProps) => {
               ? "pl-6 py-1 cursor-pointer"
               : hasChildren
               ? "py-2 px-2 cursor-pointer"
-              : "py-2 px-2"
+              : "py-2 px-2 cursor-pointer"
           } ${className ?? ""}`}
           onClick={
-            isSub ? handleLabelClick : hasChildren ? handleToggle : undefined
+            isSub ? handleLabelClick : handleMainClick
           }
           role={
-            isSub && onClick ? "button" : hasChildren ? "button" : undefined
+            isSub && onClick ? "button" : "button"
           }
         >
           {/* Left: label */}
@@ -125,10 +134,10 @@ const MenuItem = memo((props: MenuItemProps) => {
                 onClick={handleToggle}
                 aria-expanded={open}
                 aria-label={open ? "Collapse submenu" : "Expand submenu"}
-                className="p-0"
+                className="p-1 rounded text-gray-300 hover:text-white hover:bg-gray-700 transition-colors"
               >
                 <svg
-                  className={`h-6 w-6 text-gray-300 transform transition-transform ${
+                  className={`h-6 w-6 transform transition-transform ${
                     open ? "rotate-180" : "rotate-0"
                   }`}
                   viewBox="0 0 20 20"
