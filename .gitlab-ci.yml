@@ -8,7 +8,7 @@ variables:
   IMAGE_NAME: "automed-dashboard-ui"
   DOCKER_API_VERSION: "1.41"
 
-# Required CI/CD variables to enable Sonar export -> dashboard ingest:555
+# Required CI/CD variables to enable Sonar export -> dashboard ingest:
 # - SONAR_HOST_URL          e.g. https://sonarqube.company.com
 # - SONAR_TOKEN             Sonar user token
 # - SONAR_PROJECT_KEY       Sonar project key
