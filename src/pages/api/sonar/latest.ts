@@ -31,10 +31,24 @@ function getMeasureValue(measures: any[] | null | undefined, metric: string): st
 }
 
 function buildSummaryFromMeasures(measures: any[] | null | undefined) {
+  const reliabilityIssues = toNumber(getMeasureValue(measures, "reliability_issues"));
+  const securityIssues = toNumber(getMeasureValue(measures, "security_issues"));
+  const maintainabilityIssues = toNumber(getMeasureValue(measures, "maintainability_issues"));
+
+  const bugs = toNumber(getMeasureValue(measures, "bugs"));
+  const vulnerabilities = toNumber(getMeasureValue(measures, "vulnerabilities"));
+  const codeSmells = toNumber(getMeasureValue(measures, "code_smells"));
+
   const overall = {
-    bugs: toNumber(getMeasureValue(measures, "bugs")),
-    vulnerabilities: toNumber(getMeasureValue(measures, "vulnerabilities")),
-    codeSmells: toNumber(getMeasureValue(measures, "code_smells")),
+    // Match Sonar UI cards ("Reliability/Security/Maintainability open issues")
+    reliabilityIssues: reliabilityIssues ?? bugs,
+    securityIssues: securityIssues ?? vulnerabilities,
+    maintainabilityIssues: maintainabilityIssues ?? codeSmells,
+
+    // Keep raw/legacy metrics too
+    bugs,
+    vulnerabilities,
+    codeSmells,
     securityHotspots: toNumber(getMeasureValue(measures, "security_hotspots")),
     acceptedIssues: toNumber(getMeasureValue(measures, "accepted_issues")),
     coverage: toNumber(getMeasureValue(measures, "coverage")),
@@ -46,6 +60,12 @@ function buildSummaryFromMeasures(measures: any[] | null | undefined) {
   };
 
   const newCode = {
+    // Prefer domain-specific new code metrics (matches Sonar UI's New Code tab)
+    newBugs: toNumber(getMeasureValue(measures, "new_bugs")),
+    newVulnerabilities: toNumber(getMeasureValue(measures, "new_vulnerabilities")),
+    newCodeSmells: toNumber(getMeasureValue(measures, "new_code_smells")),
+
+    // Keep existing fields (some Sonar instances expose these)
     newViolations: toNumber(getMeasureValue(measures, "new_violations")),
     newSecurityHotspots: toNumber(getMeasureValue(measures, "new_security_hotspots")),
     newAcceptedIssues: toNumber(getMeasureValue(measures, "new_accepted_issues")),
@@ -69,10 +89,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const mainproduct = typeof req.query.mainproduct === "string" ? req.query.mainproduct.trim() : "";
     const subproduct = typeof req.query.subproduct === "string" ? req.query.subproduct.trim() : "";
 
-    if (!projectKey) return res.status(400).json({ error: "projectKey query parameter is required" });
+    const hasProductFields = Boolean(mainproduct) || Boolean(subproduct);
+    if (hasProductFields && (!mainproduct || !subproduct)) {
+      return res.status(400).json({
+        error: "Both mainproduct and subproduct are required when providing product info",
+      });
+    }
+
+    if (!projectKey && !(mainproduct && subproduct)) {
+      return res.status(400).json({
+        error: "Provide either projectKey, or both mainproduct and subproduct",
+      });
+    }
 
     const CACHE_TTL_MS = 15_000;
-    const cacheKey = `sonar:${projectKey}:${branch || "(default)"}:${mainproduct || "(none)"}:${subproduct || "(none)"}`;
+    const cacheKey = `sonar:${projectKey || "(by-product)"}:${branch || "(any)"}:${mainproduct || "(none)"}:${subproduct || "(none)"}`;
 
     const globalAny = globalThis as any;
     const cache: Map<string, CacheEntry> =
@@ -88,15 +119,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const client = await clientPromise;
     const db = client.db("automedtest-dashboard");
 
-    const doc = await db.collection("sonar_latest").findOne(
-      {
-        projectKey,
-        branch: branch || null,
-        mainproduct: mainproduct || null,
-        subproduct: subproduct || null,
-      },
-      { projection: { _id: 0 } },
-    );
+    const filter: any = {};
+    if (projectKey) filter.projectKey = projectKey;
+    if (branch) filter.branch = branch;
+    if (mainproduct && subproduct) {
+      filter.mainproduct = mainproduct;
+      filter.subproduct = subproduct;
+    }
+
+    const doc = await db.collection("sonar_latest").findOne(filter, {
+      projection: { _id: 0 },
+      sort: { receivedAt: -1 },
+    });
 
     if (!doc) {
       return res.status(404).json({ error: "No data" });
