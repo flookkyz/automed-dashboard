@@ -1,8 +1,8 @@
 stages:
   - sonar_scan
-  - sonar_export
   - build
   - deploy
+  - sonar_export
 
 variables:
   IMAGE_NAME: "automed-dashboard-ui"
@@ -135,6 +135,7 @@ sonar_export_and_push:
         }' > sonar-export/payload.json
 
     - |
+      echo "Posting to DASHBOARD_INGEST_URL=$DASHBOARD_INGEST_URL"
       curl -s -X POST "$DASHBOARD_INGEST_URL" \
         -H "Content-Type: application/json" \
         --data @sonar-export/payload.json
