@@ -473,9 +473,13 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
                 </svg>
               </div>
             </div>
+            
           </div>
+          
         </div>
+        
       </div>
+      
       {/* <div className="px-4 py-8 flex justify-center mt-[-70px] mb-[-90px]">
         <div className="flex w-3/4 h-96 items-center justify-between">
           <div className="w-3/4 h-full ml-24 flex flex-col items-center justify-center">
