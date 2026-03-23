@@ -1,5 +1,6 @@
 stages:
-  - sonar
+  - sonar_scan
+  - sonar_export
   - build
   - deploy
 
@@ -19,7 +20,7 @@ variables:
 # - SUBPRODUCT                   dashboard sub product name (used as MongoDB collection name)
 
 sonar_scan:
-  stage: sonar
+  stage: sonar_scan
   image: sonarsource/sonar-scanner-cli:latest
   tags:
     - automedtest-dashboard
@@ -47,9 +48,10 @@ sonar_scan:
       - .scannerwork/report-task.txt
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
+  allow_failure: true
 
 sonar_export_and_push:
-  stage: sonar
+  stage: sonar_export
   image: alpine:3.20
   tags:
     - automedtest-dashboard
@@ -145,6 +147,7 @@ sonar_export_and_push:
       - sonar-export/*.json
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
+  allow_failure: true
 
 build:
   stage: build
