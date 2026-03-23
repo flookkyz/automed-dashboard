@@ -23,6 +23,7 @@ type SonarSummary = {
     newBugs: number | null;
     newVulnerabilities: number | null;
     newCodeSmells: number | null;
+    newIssues: number | null;
     newViolations: number | null;
     newSecurityHotspots: number | null;
     newAcceptedIssues: number | null;
@@ -283,13 +284,11 @@ export default function SonarPage() {
           <div>
             <h2 className="text-lg font-bold text-gray-900 mb-3">New Code</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <Card title="Reliability" value={formatNumber(summary.newCode.newBugs)} sub="New bugs" />
-              <Card title="Security" value={formatNumber(summary.newCode.newVulnerabilities)} sub="New vulnerabilities" />
-              <Card title="Maintainability" value={formatNumber(summary.newCode.newCodeSmells)} sub="New code smells" />
-              <Card title="Security Hotspots" value={formatNumber(summary.newCode.newSecurityHotspots)} />
+              <Card title="New issues" value={formatNumber(summary.newCode.newIssues ?? summary.newCode.newViolations)} />
+              <Card title="Accepted issues" value={formatNumber(summary.newCode.newAcceptedIssues)} />
               <Card title="Coverage" value={formatPercent(summary.newCode.newCoverage)} />
               <Card title="Duplications" value={formatPercent(summary.newCode.newDuplicatedLinesDensity)} />
-              <Card title="Lines" value={formatNumber(summary.newCode.newLines)} />
+              <Card title="Security Hotspots" value={formatNumber(summary.newCode.newSecurityHotspots)} />
             </div>
           </div>
         </div>

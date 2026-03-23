@@ -65,6 +65,20 @@ function buildSummaryFromMeasures(measures: any[] | null | undefined) {
     newVulnerabilities: toNumber(getMeasureValue(measures, "new_vulnerabilities")),
     newCodeSmells: toNumber(getMeasureValue(measures, "new_code_smells")),
 
+    // Some Sonar versions expose "new_issues" while older ones use "new_violations".
+    // As a final fallback, derive from the three domain-specific metrics.
+    newIssues:
+      toNumber(getMeasureValue(measures, "new_issues")) ??
+      toNumber(getMeasureValue(measures, "new_violations")) ??
+      (() => {
+        const parts = [
+          toNumber(getMeasureValue(measures, "new_bugs")),
+          toNumber(getMeasureValue(measures, "new_vulnerabilities")),
+          toNumber(getMeasureValue(measures, "new_code_smells")),
+        ].filter((n) => typeof n === "number") as number[];
+        return parts.length ? parts.reduce((a, b) => a + b, 0) : null;
+      })(),
+
     // Keep existing fields (some Sonar instances expose these)
     newViolations: toNumber(getMeasureValue(measures, "new_violations")),
     newSecurityHotspots: toNumber(getMeasureValue(measures, "new_security_hotspots")),
