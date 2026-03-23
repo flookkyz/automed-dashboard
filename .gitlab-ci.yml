@@ -1,7 +1,7 @@
 stages:
   - sonar_scan
-  - build
-  - deploy
+  # - build
+  # - deploy
   - sonar_export
 
 variables:
