@@ -1,26 +1,26 @@
 stages:
-  - sonar_scan
+  # - quality
   - build
   - deploy
-  - sonar_export
 
 variables:
   IMAGE_NAME: "automed-dashboard-ui"
   DOCKER_API_VERSION: "1.41"
 
-# Required CI/CD variables to enable Sonar export -> dashboard ingest:5
-# - SONAR_HOST_URL          e.g. https://sonarqube.company.com
-# - SONAR_TOKEN             Sonar user token
-# - SONAR_PROJECT_KEY       Sonar project key
-# - DASHBOARD_INGEST_URL    e.g. https://your-dashboard.com/api/sonar/ingest
+# SonarQube -> Dashboard ingestion (set in GitLab CI/CD Variables)
+# - SONAR_HOST_URL           e.g. https://sonarqube.company.com
+# - SONAR_TOKEN              Sonar user token (masked/protected)
+# - SONAR_PROJECT_KEY        Sonar project key
+# - DASHBOARD_INGEST_URL     e.g. https://your-dashboard.com/api/addsonarqdata
+# - SONAR_MAINPRODUCT        main product name to group results
+# - SONAR_SUBPRODUCT         sub product name to group results
 # Optional:
-# - SONAR_INCLUDE_BRANCH_PARAMS  set to "false" if branch params are unsupported
-# - SONAR_BRANCH                 override branch name (otherwise CI_COMMIT_REF_NAME)
-# - MAINPRODUCT                  dashboard main product name
-# - SUBPRODUCT                   dashboard sub product name (used as MongoDB collection name)
+# - DASHBOARD_API_KEY        if set, addsonarqdata requires header x-api-key
+# - SONAR_INCLUDE_BRANCH_PARAMS  set to "false" if your Sonar doesn't support branches
+# - SONAR_BRANCH                 override branch name (default: CI_COMMIT_REF_NAME)
 
-sonar_scan:
-  stage: sonar_scan
+sonarqube_scan_export_and_push:
+  stage: quality
   image: sonarsource/sonar-scanner-cli:latest
   tags:
     - automedtest-dashboard
@@ -28,57 +28,36 @@ sonar_scan:
     GIT_DEPTH: "0"
   script:
     - |
-      INCLUDE_BRANCH="${SONAR_INCLUDE_BRANCH_PARAMS:-true}"
-      if [ "$INCLUDE_BRANCH" = "true" ]; then
-        export BRANCH_NAME="${SONAR_BRANCH:-${CI_COMMIT_REF_NAME}}"
+      if command -v apk >/dev/null 2>&1; then
+        apk add --no-cache curl jq
+      elif command -v apt-get >/dev/null 2>&1; then
+        apt-get update -y; apt-get install -y curl jq
       else
-        export BRANCH_NAME=""
+        echo "No supported package manager found to install curl/jq"; exit 1
       fi
 
-      SCAN_ARGS="-Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN -Dsonar.projectKey=$SONAR_PROJECT_KEY -Dsonar.sources=src"
+    - |
+      INCLUDE_BRANCH="${SONAR_INCLUDE_BRANCH_PARAMS:-true}"
+      if [ "$INCLUDE_BRANCH" = "true" ]; then
+        BRANCH_NAME="${SONAR_BRANCH:-${CI_COMMIT_REF_NAME}}"
+      else
+        BRANCH_NAME=""
+      fi
+
+      SCAN_ARGS="-Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN -Dsonar.projectKey=$SONAR_PROJECT_KEY"
       if [ -n "$BRANCH_NAME" ]; then
         SCAN_ARGS="$SCAN_ARGS -Dsonar.branch.name=$BRANCH_NAME"
       fi
 
       sonar-scanner $SCAN_ARGS
-  artifacts:
-    when: always
-    expire_in: 7 days
-    paths:
-      - .scannerwork/report-task.txt
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
-  allow_failure: true
 
-sonar_export_and_push:
-  stage: sonar_export
-  image: alpine:3.20
-  tags:
-    - automedtest-dashboard
-  needs:
-    - job: sonar_scan
-      artifacts: true
-  script:
-    - apk add --no-cache curl jq
-
-    - export SONAR_SERVER_URL="$(grep -E '^serverUrl=' .scannerwork/report-task.txt | cut -d= -f2-)"
     - export CE_TASK_ID="$(grep -E '^ceTaskId=' .scannerwork/report-task.txt | cut -d= -f2)"
-    - export DASHBOARD_URL="$(grep -E '^dashboardUrl=' .scannerwork/report-task.txt | cut -d= -f2-)"
+    - echo "CE_TASK_ID=$CE_TASK_ID"; echo "BRANCH_NAME=$BRANCH_NAME"
 
     - |
-      INCLUDE_BRANCH="${SONAR_INCLUDE_BRANCH_PARAMS:-true}"
-      if [ "$INCLUDE_BRANCH" = "true" ]; then
-        export BRANCH_NAME="${SONAR_BRANCH:-${CI_COMMIT_REF_NAME}}"
-      else
-        export BRANCH_NAME=""
-      fi
-
-    - echo "SONAR_SERVER_URL=$SONAR_SERVER_URL"; echo "CE_TASK_ID=$CE_TASK_ID"; echo "BRANCH_NAME=$BRANCH_NAME"
-
-    - |
-      # Wait for Compute Engine task completion
       for i in $(seq 1 60); do
-        STATUS="$(curl -s -u "$SONAR_TOKEN:" "$SONAR_SERVER_URL/api/ce/task?id=$CE_TASK_ID" | jq -r '.task.status')"
+        STATUS="$(curl -s -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/ce/task?id=$CE_TASK_ID" | jq -r '.task.status')"
+        ANALYSIS_ID="$(curl -s -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/ce/task?id=$CE_TASK_ID" | jq -r '.task.analysisId // empty')"
         echo "Sonar CE status: $STATUS"
         if [ "$STATUS" = "SUCCESS" ]; then break; fi
         if [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELED" ]; then exit 1; fi
@@ -88,39 +67,39 @@ sonar_export_and_push:
     - mkdir -p sonar-export
 
     - |
-      QG_URL="$SONAR_SERVER_URL/api/qualitygates/project_status?projectKey=$SONAR_PROJECT_KEY"
+      QG_URL="$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=$SONAR_PROJECT_KEY"
       if [ -n "$BRANCH_NAME" ]; then QG_URL="$QG_URL&branch=$BRANCH_NAME"; fi
       curl -s -u "$SONAR_TOKEN:" "$QG_URL" -o sonar-export/qualitygate.json
 
     - |
-      MEASURES_URL="$SONAR_SERVER_URL/api/measures/component?component=$SONAR_PROJECT_KEY"
+      MEASURES_URL="$SONAR_HOST_URL/api/measures/component?component=$SONAR_PROJECT_KEY"
       if [ -n "$BRANCH_NAME" ]; then MEASURES_URL="$MEASURES_URL&branch=$BRANCH_NAME"; fi
       MEASURES_URL="$MEASURES_URL&metricKeys=reliability_issues,security_issues,maintainability_issues,bugs,vulnerabilities,code_smells,security_hotspots,accepted_issues,coverage,duplicated_lines_density,ncloc,reliability_rating,security_rating,sqale_rating,new_bugs,new_vulnerabilities,new_code_smells,new_security_hotspots,new_coverage,new_duplicated_lines_density,new_lines,new_issues,new_violations,new_accepted_issues"
       curl -s -u "$SONAR_TOKEN:" "$MEASURES_URL" -o sonar-export/measures.json
 
     - |
-      NCP_URL="$SONAR_SERVER_URL/api/new_code_periods/show?project=$SONAR_PROJECT_KEY"
+      NCP_URL="$SONAR_HOST_URL/api/new_code_periods/show?project=$SONAR_PROJECT_KEY"
       if [ -n "$BRANCH_NAME" ]; then NCP_URL="$NCP_URL&branch=$BRANCH_NAME"; fi
       curl -s -u "$SONAR_TOKEN:" "$NCP_URL" -o sonar-export/new_code_period.json
 
     - |
       jq -n \
+        --arg mainproduct "$SONAR_MAINPRODUCT" \
+        --arg subproduct "$SONAR_SUBPRODUCT" \
         --arg projectKey "$SONAR_PROJECT_KEY" \
         --arg branch "$BRANCH_NAME" \
-        --arg mainproduct "${MAINPRODUCT:-}" \
-        --arg subproduct "${SUBPRODUCT:-}" \
-        --arg dashboardUrl "${DASHBOARD_URL:-}" \
         --arg scannedAt "$(date -Iseconds)" \
+        --arg analysisId "${ANALYSIS_ID:-}" \
         --slurpfile qg sonar-export/qualitygate.json \
         --slurpfile measures sonar-export/measures.json \
         --slurpfile ncp sonar-export/new_code_period.json \
         '{
+          mainproduct: $mainproduct,
+          subproduct: $subproduct,
           projectKey: $projectKey,
           branch: (if ($branch|length) > 0 then $branch else null end),
-          mainproduct: (if ($mainproduct|length) > 0 then $mainproduct else null end),
-          subproduct: (if ($subproduct|length) > 0 then $subproduct else null end),
           scannedAt: $scannedAt,
-          dashboardUrl: (if ($dashboardUrl|length) > 0 then $dashboardUrl else null end),
+          analysisId: (if ($analysisId|length) > 0 then $analysisId else null end),
           qualityGate: ($qg[0].projectStatus // $qg[0]),
           measures: ($measures[0].component.measures // $measures[0].component // $measures[0]),
           newCodePeriod: ($ncp[0].newCodePeriod // $ncp[0]),
@@ -135,20 +114,20 @@ sonar_export_and_push:
         }' > sonar-export/payload.json
 
     - |
-      echo "Posting to DASHBOARD_INGEST_URL=$DASHBOARD_INGEST_URL"
-      curl -s -X POST "$DASHBOARD_INGEST_URL" \
-        -H "Content-Type: application/json" \
-        --data @sonar-export/payload.json
-
+      if [ -n "$DASHBOARD_API_KEY" ]; then
+        curl -s -X POST "$DASHBOARD_INGEST_URL" -H "Content-Type: application/json" -H "x-api-key: $DASHBOARD_API_KEY" --data @sonar-export/payload.json
+      else
+        curl -s -X POST "$DASHBOARD_INGEST_URL" -H "Content-Type: application/json" --data @sonar-export/payload.json
+      fi
   artifacts:
     when: always
     expire_in: 7 days
     paths:
       - .scannerwork/report-task.txt
       - sonar-export/*.json
+  allow_failure: true
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
-  allow_failure: true
 
 build:
   stage: build

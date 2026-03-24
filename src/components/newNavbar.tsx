@@ -117,21 +117,6 @@ function NewNavbarpage() {
         >
           Dashboard
         </div>
-
-        <div className="px-4">
-          <button
-            type="button"
-            className="w-full mb-3 px-3 py-2 rounded-md bg-gray-700 hover:bg-gray-600 transition-colors text-left"
-            onClick={() => {
-              const query: Record<string, string> = {};
-              if (activeMain) query.mainproduct = activeMain;
-              if (activeSub) query.subproduct = activeSub;
-              router.push({ pathname: "/sonar", query }, undefined, { shallow: true });
-            }}
-          >
-            SonarQ
-          </button>
-        </div>
         <div className="flex justify-center px-4">
           <SearchInput
             placeholder="Search..."
