@@ -12,6 +12,7 @@ type SonarDoc = {
   qualityGate?: any;
   measures?: any;
   newCodePeriod?: any;
+  issueCounts?: any;
   timestamp?: string;
   date?: string;
   time?: string;
@@ -32,6 +33,18 @@ function normalizePercent(value: unknown): string {
   return `${n.toFixed(1)}%`;
 }
 
+function toNumberOrUndefined(value: unknown): number | undefined {
+  if (value == null) return undefined;
+  if (typeof value === "number") return Number.isFinite(value) ? value : undefined;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed.length) return undefined;
+    const n = Number(trimmed);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return undefined;
+}
+
 function hoursAgo(iso: string | undefined): string {
   if (!iso) return "";
   const t = Date.parse(iso);
@@ -49,6 +62,14 @@ function buildMeasureMap(measures: any): Record<string, any> {
     if (m && typeof m.metric === "string") out[m.metric] = m;
   }
   return out;
+}
+
+function pickFirstDefinedNumber(...values: unknown[]): number {
+  for (const v of values) {
+    const n = toNumberOrUndefined(v);
+    if (n !== undefined) return n;
+  }
+  return 0;
 }
 
 function QualityBadge({ status }: { status?: string }) {
@@ -156,9 +177,28 @@ function SonarQubePanel({ mainproduct, subproduct }: { mainproduct: string; subp
     ? toNumber(measureMap.new_security_hotspots?.value)
     : toNumber(measureMap.security_hotspots?.value);
 
-  const reliabilityIssues = toNumber(measureMap.reliability_issues?.value);
-  const securityIssues = toNumber(measureMap.security_issues?.value);
-  const maintainabilityIssues = toNumber(measureMap.maintainability_issues?.value);
+  // SonarQube versions vary: some expose *_issues measures, others use bugs/vulnerabilities/code_smells.
+  // Prefer issueCounts (from /api/issues/search) when available, then fallback to measures.
+  const issueCounts = (doc as any)?.issueCounts;
+  const reliabilityIssues = pickFirstDefinedNumber(
+    issueCounts?.bugs,
+    measureMap.reliability_issues?.value,
+    measureMap.bugs?.value,
+  );
+  const securityIssues = pickFirstDefinedNumber(
+    issueCounts?.vulnerabilities,
+    measureMap.security_issues?.value,
+    measureMap.vulnerabilities?.value,
+  );
+  const maintainabilityIssues = pickFirstDefinedNumber(
+    issueCounts?.codeSmells,
+    measureMap.maintainability_issues?.value,
+    measureMap.code_smells?.value,
+  );
+  const securityHotspotsOverall = pickFirstDefinedNumber(
+    issueCounts?.securityHotspots,
+    measureMap.security_hotspots?.value,
+  );
 
   return (
     <div className="mt-8 px-6 pb-10">
@@ -222,7 +262,7 @@ function SonarQubePanel({ mainproduct, subproduct }: { mainproduct: string; subp
                 <MetricCard title="Accepted issues" value={accepted} sub="Valid issues that were not fixed" />
                 <MetricCard title="Coverage" value={coverage} sub={isNew ? "Required ≥ 80.0%" : undefined} />
                 <MetricCard title="Duplications" value={dup} sub={isNew ? "Required ≤ 3.0%" : undefined} />
-                <MetricCard title="Security Hotspots" value={securityHotspots} />
+                <MetricCard title="Security Hotspots" value={isNew ? securityHotspots : securityHotspotsOverall} />
 
                 {!isNew ? (
                   <>

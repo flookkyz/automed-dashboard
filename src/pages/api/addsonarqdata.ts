@@ -11,6 +11,7 @@ type SonarIngestBody = {
   qualityGate?: unknown;
   measures?: unknown;
   newCodePeriod?: unknown;
+  issueCounts?: unknown;
   metadata?: unknown;
   raw?: unknown;
 };
@@ -80,6 +81,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     qualityGate: body.qualityGate ?? null,
     measures: body.measures ?? null,
     newCodePeriod: body.newCodePeriod ?? null,
+    issueCounts: body.issueCounts ?? null,
     metadata: body.metadata ?? null,
     raw: body.raw ?? null,
   };

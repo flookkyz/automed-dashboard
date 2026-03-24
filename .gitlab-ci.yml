@@ -114,7 +114,23 @@ sonarqube_export_and_push:
       if [ -n "$BRANCH_NAME" ]; then MEASURES_URL="$MEASURES_URL&branch=$BRANCH_NAME"; fi
       # Build metricKeys dynamically to avoid "metric keys are not found" errors (varies by SonarQube version).
       DESIRED_KEYS="reliability_issues security_issues maintainability_issues bugs vulnerabilities code_smells security_hotspots accepted_issues coverage duplicated_lines_density ncloc reliability_rating security_rating sqale_rating new_bugs new_vulnerabilities new_code_smells new_security_hotspots new_coverage new_duplicated_lines_density new_lines new_lines_to_cover new_violations new_accepted_issues"
-      AVAILABLE_KEYS="$(curl -s -u \"$SONAR_TOKEN:\" \"$SONAR_HOST_URL/api/metrics/search?ps=500\" | jq -r '.metrics[].key' 2>/dev/null || true)"
+      # /api/metrics/search is paged; fetch all pages so we don't miss keys.
+      AVAILABLE_KEYS=""
+      FIRST_PAGE="$(curl -s -u \"$SONAR_TOKEN:\" \"$SONAR_HOST_URL/api/metrics/search?ps=500&p=1\" || true)"
+      TOTAL="$(echo "$FIRST_PAGE" | jq -r '.paging.total // 0' 2>/dev/null || echo 0)"
+      PS=500
+      if [ -z "$TOTAL" ] || [ "$TOTAL" = "null" ]; then TOTAL=0; fi
+      PAGES=$(( (TOTAL + PS - 1) / PS ))
+      if [ "$PAGES" -lt 1 ]; then PAGES=1; fi
+      for p in $(seq 1 "$PAGES"); do
+        PAGE_JSON="$FIRST_PAGE"
+        if [ "$p" -ne 1 ]; then
+          PAGE_JSON="$(curl -s -u \"$SONAR_TOKEN:\" \"$SONAR_HOST_URL/api/metrics/search?ps=$PS&p=$p\" || true)"
+        fi
+        KEYS="$(echo "$PAGE_JSON" | jq -r '.metrics[].key' 2>/dev/null || true)"
+        if [ -n "$KEYS" ]; then AVAILABLE_KEYS="$AVAILABLE_KEYS
+      $KEYS"; fi
+      done
       METRIC_KEYS=""
       for k in $DESIRED_KEYS; do
         if echo "$AVAILABLE_KEYS" | grep -qx "$k"; then
@@ -128,6 +144,26 @@ sonarqube_export_and_push:
       echo "Using metric keys: $METRIC_KEYS"
       MEASURES_URL="$MEASURES_URL&metricKeys=$METRIC_KEYS"
       curl -s -u "$SONAR_TOKEN:" "$MEASURES_URL" -o sonar-export/measures.json
+
+    - |
+      # Export open issue counts (matches SonarQube UI "Open issues" numbers more closely than some measures)
+      ISSUES_URL="$SONAR_HOST_URL/api/issues/search?componentKeys=$SONAR_PROJECT_KEY&resolved=false&ps=1&facets=types"
+      if [ -n "$BRANCH_NAME" ]; then ISSUES_URL="$ISSUES_URL&branch=$BRANCH_NAME"; fi
+      curl -s -u "$SONAR_TOKEN:" "$ISSUES_URL" -o sonar-export/issues_facets.json || echo '{"facets":[]}' > sonar-export/issues_facets.json
+
+    - |
+      # Build a small normalized issueCounts JSON (bugs/vulnerabilities/codeSmells/securityHotspots)
+      jq -n \
+        --slurpfile issues sonar-export/issues_facets.json \
+        'def countOf(t):
+           ($issues[0].facets[]? | select(.property=="types") | .values[]? | select(.val==t) | .count) // 0;
+         {
+           bugs: countOf("BUG"),
+           vulnerabilities: countOf("VULNERABILITY"),
+           codeSmells: countOf("CODE_SMELL"),
+           securityHotspots: (countOf("SECURITY_HOTSPOT"))
+         }' > sonar-export/issueCounts.json \
+      || echo '{"bugs":0,"vulnerabilities":0,"codeSmells":0,"securityHotspots":0}' > sonar-export/issueCounts.json
 
     - |
       NCP_URL="$SONAR_HOST_URL/api/new_code_periods/show?project=$SONAR_PROJECT_KEY"
@@ -145,6 +181,8 @@ sonarqube_export_and_push:
         --slurpfile qg sonar-export/qualitygate.json \
         --slurpfile measures sonar-export/measures.json \
         --slurpfile ncp sonar-export/new_code_period.json \
+        --slurpfile issueCounts sonar-export/issueCounts.json \
+        --slurpfile issues sonar-export/issues_facets.json \
         '{
           mainproduct: $mainproduct,
           subproduct: $subproduct,
@@ -155,10 +193,12 @@ sonarqube_export_and_push:
           qualityGate: ($qg[0].projectStatus // $qg[0]),
           measures: ($measures[0].component.measures // $measures[0].component // $measures[0]),
           newCodePeriod: ($ncp[0].newCodePeriod // $ncp[0]),
+          issueCounts: ($issueCounts[0] // null),
           raw: {
             qualityGate: $qg[0],
             measures: $measures[0],
-            newCodePeriod: $ncp[0]
+            newCodePeriod: $ncp[0],
+            issuesFacets: ($issues[0] // null)
           },
           metadata: {
             gitlab: {
