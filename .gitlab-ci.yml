@@ -8,15 +8,9 @@ variables:
   IMAGE_NAME: "automed-dashboard-ui"
   DOCKER_API_VERSION: "1.41"
 
-  # SonarScanner CLI download version (override if needed)
-  SONAR_SCANNER_VERSION: "6.2.1.4610"
-
   # SonarJS uses a Node runtime internally; increase heap (MB) to avoid OOM.
   # If your runner has low memory, lower this value.
   SONAR_NODE_MAXSPACE: "6144"
-
-  # Optional: set to "true" only if you have self-signed/unknown CA cert and cannot add CA to runner
-  # SONAR_SCANNER_SKIP_CERT_CHECK: "true"
 
 # SonarQube -> Dashboard ingestion (set in GitLab CI/CD Variables)
 # - SONAR_HOST_URL           e.g. https://sonarqube.company.com
@@ -32,28 +26,12 @@ variables:
 
 sonarqube_scan:
   stage: quality
-  image: alpine:3.20
+  image: sonarsource/sonar-scanner-cli:latest
   tags:
     - automedtest-dashboard
   variables:
     GIT_DEPTH: "0"
   script:
-    - apk add --no-cache bash curl unzip ca-certificates openjdk17-jre
-    - update-ca-certificates
-
-    - |
-      echo "Downloading sonar-scanner $SONAR_SCANNER_VERSION"
-      SCANNER_ZIP="sonar-scanner-cli-${SONAR_SCANNER_VERSION}-linux-x64.zip"
-      curl -fsSL "https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/${SCANNER_ZIP}" -o "$SCANNER_ZIP"
-      unzip -q "$SCANNER_ZIP" -d .sonar
-      export PATH="$CI_PROJECT_DIR/.sonar/sonar-scanner-${SONAR_SCANNER_VERSION}-linux-x64/bin:$PATH"
-      sonar-scanner --version
-
-    - |
-      echo "Connectivity check: $SONAR_HOST_URL"
-      # This helps pinpoint SSL/proxy/timeout issues early.
-      curl -fsS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/system/status" | head -c 500 || true
-
     - |
       INCLUDE_BRANCH="${SONAR_INCLUDE_BRANCH_PARAMS:-true}"
       if [ "$INCLUDE_BRANCH" = "true" ]; then
@@ -62,13 +40,10 @@ sonarqube_scan:
         BRANCH_NAME=""
       fi
 
+      # Scan only application source (prevents scanning large files under uploads/)
       EXTRA_PROPS="-Dsonar.sources=src -Dsonar.exclusions=**/node_modules/**,**/.next/**,uploads/**,public/**"
       EXTRA_PROPS="$EXTRA_PROPS -Dsonar.ws.timeout=120"
       EXTRA_PROPS="$EXTRA_PROPS -Dsonar.javascript.node.maxspace=$SONAR_NODE_MAXSPACE"
-
-      if [ "${SONAR_SCANNER_SKIP_CERT_CHECK:-false}" = "true" ]; then
-        EXTRA_PROPS="$EXTRA_PROPS -Dsonar.scanner.skipCertificateCheck=true"
-      fi
 
       SCAN_ARGS="-Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN -Dsonar.projectKey=$SONAR_PROJECT_KEY"
       if [ -n "$BRANCH_NAME" ]; then
