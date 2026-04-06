@@ -59,9 +59,28 @@ function buildMeasureMap(measures: any): Record<string, any> {
   const list = Array.isArray(measures) ? measures : Array.isArray(measures.measures) ? measures.measures : [];
   const out: Record<string, any> = {};
   for (const m of list) {
-    if (m && typeof m.metric === "string") out[m.metric] = m;
+    if (m && typeof m.metric === "string") {
+      const normalizedValue =
+        m.value !== undefined ? m.value : m.period && m.period.value !== undefined ? m.period.value : undefined;
+      out[m.metric] = normalizedValue === undefined ? m : { ...m, value: normalizedValue };
+    }
   }
   return out;
+}
+
+function issueTotalOrUndefined(value: unknown): number | undefined {
+  const direct = toNumberOrUndefined(value);
+  if (direct !== undefined) return direct;
+
+  if (typeof value !== "string") return undefined;
+  const s = value.trim();
+  if (!s.startsWith("{")) return undefined;
+  try {
+    const obj = JSON.parse(s);
+    return toNumberOrUndefined(obj?.total);
+  } catch {
+    return undefined;
+  }
 }
 
 function pickFirstDefinedNumber(...values: unknown[]): number {
@@ -181,18 +200,18 @@ function SonarQubePanel({ mainproduct, subproduct }: { mainproduct: string; subp
   // Prefer issueCounts (from /api/issues/search) when available, then fallback to measures.
   const issueCounts = (doc as any)?.issueCounts;
   const reliabilityIssues = pickFirstDefinedNumber(
+    issueTotalOrUndefined(measureMap.reliability_issues?.value),
     issueCounts?.bugs,
-    measureMap.reliability_issues?.value,
     measureMap.bugs?.value,
   );
   const securityIssues = pickFirstDefinedNumber(
+    issueTotalOrUndefined(measureMap.security_issues?.value),
     issueCounts?.vulnerabilities,
-    measureMap.security_issues?.value,
     measureMap.vulnerabilities?.value,
   );
   const maintainabilityIssues = pickFirstDefinedNumber(
+    issueTotalOrUndefined(measureMap.maintainability_issues?.value),
     issueCounts?.codeSmells,
-    measureMap.maintainability_issues?.value,
     measureMap.code_smells?.value,
   );
   const securityHotspotsOverall = pickFirstDefinedNumber(
