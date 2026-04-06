@@ -94,6 +94,7 @@ sonarqube:
       SONAR_OUT_FILE="${SONAR_OUT_FILE:-sonar-summary.json}"
       DASHBOARD_API_URL="${DASHBOARD_API_URL:-}"
       DASHBOARD_SONAR_PATH="${DASHBOARD_SONAR_PATH:-/api/addsonarqdata}"
+      SONAR_BRANCH="${SONAR_BRANCH:-${CI_COMMIT_BRANCH:-master}}"
 
       node_json_get() {
         # Usage: node_json_get <json> <jsExpr>
@@ -159,7 +160,7 @@ sonarqube:
       QUALITY_GATE_JSON="$(curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/qualitygates/project_status?analysisId=$ANALYSIS_ID")"
 
       METRICS="bugs,vulnerabilities,code_smells,security_hotspots,coverage,duplicated_lines_density,new_bugs,new_vulnerabilities,new_code_smells,new_security_hotspots,new_coverage,new_duplicated_lines_density"
-      MEASURES_RAW="$(curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/measures/component?component=$SONAR_PROJECT_KEY&metricKeys=$METRICS")"
+      MEASURES_RAW="$(curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/measures/component?component=$SONAR_PROJECT_KEY&branch=$SONAR_BRANCH&metricKeys=$METRICS")"
       CE_TASK_JSON="$CE_JSON"
 
       QUALITY_GATE_STATUS="$(node_json_get "$QUALITY_GATE_JSON" 'j.projectStatus && j.projectStatus.status')"
@@ -171,6 +172,7 @@ sonarqube:
       MEASURE_MAP="$(printf '%s' "$MEASURES_LIST" | "$NODE_BIN" -e "const fs=require('fs'); const measures=JSON.parse(fs.readFileSync(0,'utf8')||'[]'); const out={}; for(const m of measures){ out[m.metric]= (m.value===undefined? null : m.value); } process.stdout.write(JSON.stringify(out));")"
 
       export QUALITY_GATE_STATUS QUALITY_GATE_CONDITIONS QUALITY_GATE_JSON MEASURES_RAW CE_TASK_JSON SONAR_OUT_FILE
+      export SONAR_BRANCH
 
       # Write final payload
       printf '%s' "$MEASURE_MAP" | "$NODE_BIN" -e "
@@ -182,6 +184,7 @@ sonarqube:
           subproduct: process.env.SUBPRODUCT,
           projectKey: process.env.SONAR_PROJECT_KEY,
           hostUrl: process.env.SONAR_HOST_URL,
+          branch: process.env.SONAR_BRANCH,
           summary: {
             overall: {
               bugs: num(m.bugs),

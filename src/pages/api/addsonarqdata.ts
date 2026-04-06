@@ -29,6 +29,7 @@ type SonarUpsertBody = {
   subproduct: string;
   projectKey: string;
   hostUrl?: string;
+  branch?: string;
   summary?: SonarSummary;
   raw?: {
     qualityGate?: any;
@@ -109,6 +110,7 @@ export default async function handler(
   const sonarDoc = {
     projectKey: body.projectKey,
     hostUrl: typeof body.hostUrl === "string" ? body.hostUrl : undefined,
+    branch: typeof body.branch === "string" ? body.branch : undefined,
     fetchedAtDate: nowDate,
     fetchedAtTime: nowTime,
     summary: body.summary ?? undefined,
