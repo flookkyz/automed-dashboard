@@ -82,7 +82,7 @@ sonarqube:
       required_env SUBPRODUCT
 
       SONAR_SOURCES="${SONAR_SOURCES:-.}"
-      SONAR_METADATA_FILE="${SONAR_METADATA_FILE:-report-task.txt}"
+      SONAR_METADATA_FILE="${SONAR_METADATA_FILE:-$(pwd)/report-task.txt}"
       SONAR_OUT_FILE="${SONAR_OUT_FILE:-sonar-summary.json}"
       DASHBOARD_API_URL="${DASHBOARD_API_URL:-}"
       DASHBOARD_SONAR_PATH="${DASHBOARD_SONAR_PATH:-/api/addsonarqdata}"
