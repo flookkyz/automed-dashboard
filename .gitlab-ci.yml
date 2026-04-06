@@ -178,7 +178,26 @@ sonarqube:
       printf '%s' "$MEASURE_MAP" | "$NODE_BIN" -e "
         const fs=require('fs');
         const m=JSON.parse(fs.readFileSync(0,'utf8')||'{}');
-        const num = (v) => (v===null||v===undefined||v==='') ? null : Number(v);
+        const num = (v) => {
+          if (v===null||v===undefined||v==='') return null;
+          const n = Number(v);
+          return Number.isFinite(n) ? n : null;
+        };
+        const issueTotal = (v) => {
+          // SonarQube *_issues metrics often come as a JSON string like:
+          // {"INFO":0,"LOW":...,"total":67}
+          const direct = num(v);
+          if (direct !== null) return direct;
+          if (typeof v !== 'string') return null;
+          const s = v.trim();
+          if (!s.startsWith('{')) return null;
+          try {
+            const obj = JSON.parse(s);
+            return num(obj && obj.total);
+          } catch {
+            return null;
+          }
+        };
         const payload = {
           mainproduct: process.env.MAINPRODUCT,
           subproduct: process.env.SUBPRODUCT,
@@ -193,9 +212,9 @@ sonarqube:
               securityHotspots: num(m.security_hotspots),
               coverage: num(m.coverage),
               duplicatedLinesDensity: num(m.duplicated_lines_density),
-              reliabilityIssues: num(m.reliability_issues),
-              securityIssues: num(m.security_issues),
-              maintainabilityIssues: num(m.maintainability_issues),
+              reliabilityIssues: issueTotal(m.reliability_issues),
+              securityIssues: issueTotal(m.security_issues),
+              maintainabilityIssues: issueTotal(m.maintainability_issues),
               acceptedIssues: num(m.accepted_issues),
               violations: num(m.violations),
             },
@@ -206,9 +225,9 @@ sonarqube:
               securityHotspots: num(m.new_security_hotspots),
               coverage: num(m.new_coverage),
               duplicatedLinesDensity: num(m.new_duplicated_lines_density),
-              reliabilityIssues: num(m.new_reliability_issues),
-              securityIssues: num(m.new_security_issues),
-              maintainabilityIssues: num(m.new_maintainability_issues),
+              reliabilityIssues: issueTotal(m.new_reliability_issues),
+              securityIssues: issueTotal(m.new_security_issues),
+              maintainabilityIssues: issueTotal(m.new_maintainability_issues),
               acceptedIssues: num(m.new_accepted_issues),
               violations: num(m.new_violations),
             },
