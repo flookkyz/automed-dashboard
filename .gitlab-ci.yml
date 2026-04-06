@@ -159,7 +159,7 @@ sonarqube:
 
       QUALITY_GATE_JSON="$(curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/qualitygates/project_status?analysisId=$ANALYSIS_ID")"
 
-      METRICS="bugs,vulnerabilities,code_smells,security_hotspots,coverage,duplicated_lines_density,new_bugs,new_vulnerabilities,new_code_smells,new_security_hotspots,new_coverage,new_duplicated_lines_density"
+      METRICS="bugs,vulnerabilities,code_smells,security_hotspots,coverage,duplicated_lines_density,reliability_issues,security_issues,maintainability_issues,accepted_issues,violations,new_bugs,new_vulnerabilities,new_code_smells,new_security_hotspots,new_coverage,new_duplicated_lines_density,new_reliability_issues,new_security_issues,new_maintainability_issues,new_accepted_issues,new_violations"
       MEASURES_RAW="$(curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/measures/component?component=$SONAR_PROJECT_KEY&branch=$SONAR_BRANCH&metricKeys=$METRICS")"
       CE_TASK_JSON="$CE_JSON"
 
@@ -193,6 +193,11 @@ sonarqube:
               securityHotspots: num(m.security_hotspots),
               coverage: num(m.coverage),
               duplicatedLinesDensity: num(m.duplicated_lines_density),
+              reliabilityIssues: num(m.reliability_issues),
+              securityIssues: num(m.security_issues),
+              maintainabilityIssues: num(m.maintainability_issues),
+              acceptedIssues: num(m.accepted_issues),
+              violations: num(m.violations),
             },
             newCode: {
               bugs: num(m.new_bugs),
@@ -201,6 +206,11 @@ sonarqube:
               securityHotspots: num(m.new_security_hotspots),
               coverage: num(m.new_coverage),
               duplicatedLinesDensity: num(m.new_duplicated_lines_density),
+              reliabilityIssues: num(m.new_reliability_issues),
+              securityIssues: num(m.new_security_issues),
+              maintainabilityIssues: num(m.new_maintainability_issues),
+              acceptedIssues: num(m.new_accepted_issues),
+              violations: num(m.new_violations),
             },
             qualityGate: {
               status: process.env.QUALITY_GATE_STATUS || null,
