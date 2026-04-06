@@ -1,6 +1,6 @@
 stages:
-  - build
-  - deploy
+  # - build
+  # - deploy
   - sonarqube_scan
 
 variables:
@@ -9,53 +9,53 @@ variables:
   SONAR_PROJECT_KEY: "sec-ifisd-testdashboard2"
   SONAR_SOURCES: "."
 
-build:
-  stage: build
-  image: docker:latest
-  tags:
-    - automedtest-dashboard
-  script:
-    - |
-      if [ -n "$(docker images -q ${IMAGE_NAME}:latest)" ]; then
-        echo "Tagging ${IMAGE_NAME}:latest as ${IMAGE_NAME}:previous"
-        docker rmi --force "${IMAGE_NAME}:previous"
-        docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:previous"
-        docker rmi --force "${IMAGE_NAME}:latest"
-      else
-        echo "No ${IMAGE_NAME}:latest found."
-      fi
-    - docker build -t "${IMAGE_NAME}:latest" .
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
+# build:
+#   stage: build
+#   image: docker:latest
+#   tags:
+#     - automedtest-dashboard
+#   script:
+#     - |
+#       if [ -n "$(docker images -q ${IMAGE_NAME}:latest)" ]; then
+#         echo "Tagging ${IMAGE_NAME}:latest as ${IMAGE_NAME}:previous"
+#         docker rmi --force "${IMAGE_NAME}:previous"
+#         docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:previous"
+#         docker rmi --force "${IMAGE_NAME}:latest"
+#       else
+#         echo "No ${IMAGE_NAME}:latest found."
+#       fi
+#     - docker build -t "${IMAGE_NAME}:latest" .
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "master"'
 
-deploy:
-  stage: deploy
-  image: docker:latest
-  tags:
-    - automedtest-dashboard
-  script:
-    - echo "${IMAGE_NAME}"
-    - if [ "$(docker ps -aq -f name=${IMAGE_NAME})" ]; then
-      echo "Stopping and removing container ${IMAGE_NAME}...";
-      docker stop "${IMAGE_NAME}" && docker rm "${IMAGE_NAME}";
-      fi
-    - >
-      docker run
-      --env NODE_ENV=production
-      --env MONGODB_URI=$MONGODB_URI
-      --env MONGODB_DB=$MONGODB_DB
-      -v /etc/localtime:/etc/localtime:ro
-      -p $EXPOSE_PORT:$PORT
-      -d --name "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
+# deploy:
+#   stage: deploy
+#   image: docker:latest
+#   tags:
+#     - automedtest-dashboard
+#   script:
+#     - echo "${IMAGE_NAME}"
+#     - if [ "$(docker ps -aq -f name=${IMAGE_NAME})" ]; then
+#       echo "Stopping and removing container ${IMAGE_NAME}...";
+#       docker stop "${IMAGE_NAME}" && docker rm "${IMAGE_NAME}";
+#       fi
+#     - >
+#       docker run
+#       --env NODE_ENV=production
+#       --env MONGODB_URI=$MONGODB_URI
+#       --env MONGODB_DB=$MONGODB_DB
+#       -v /etc/localtime:/etc/localtime:ro
+#       -p $EXPOSE_PORT:$PORT
+#       -d --name "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
+#   rules:
+#     - if: '$CI_COMMIT_BRANCH == "master"'
 
 sonarqube:
   stage: sonarqube_scan
   image:
     name: sonarsource/sonar-scanner-cli:latest
   tags:
-    - nene-docker
+    - automedtest-dashboard
   script:
     - |
       if command -v apk >/dev/null 2>&1; then
