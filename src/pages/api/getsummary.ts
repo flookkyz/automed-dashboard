@@ -109,6 +109,11 @@ export default async function handler(
                             "nametest.fail": 1,
                             "nametest.error": 1,
                             "nametest.time": 1,
+                            "sonar.projectKey": 1,
+                            "sonar.hostUrl": 1,
+                            "sonar.fetchedAtDate": 1,
+                            "sonar.fetchedAtTime": 1,
+                            "sonar.summary": 1,
                         },
                     },
                 );

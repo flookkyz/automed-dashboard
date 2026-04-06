@@ -1,267 +1,199 @@
 stages:
-  - quality
-  - quality_export
-  # - build
-  # - deploy
+  - build
+  - deploy
+  - sonarqube_scan
 
 variables:
   IMAGE_NAME: "automed-dashboard-ui"
-  DOCKER_API_VERSION: "1.41"
+  SONAR_HOST_URL: "https://sec-sonarq.freewillgroup.com"
+  SONAR_PROJECT_KEY: "sec-ifisd-testdashboard2"
+  SONAR_SOURCES: "."
 
-  # SonarJS uses a Node runtime internally; increase heap (MB) to avoid OOM.
-  # If your runner has low memory, lower this value.
-  SONAR_NODE_MAXSPACE: "6144"
-
-# SonarQube -> Dashboard ingestion (set in GitLab CI/CD Variables)
-# - SONAR_HOST_URL           e.g. https://sonarqube.company.com
-# - SONAR_TOKEN              Sonar user token (masked/protected)
-# - SONAR_PROJECT_KEY        Sonar project key
-# - DASHBOARD_INGEST_URL     e.g. https://your-dashboard.com/api/addsonarqdata
-# - SONAR_MAINPRODUCT        main product name to group results
-# - SONAR_SUBPRODUCT         sub product name to group results
-# Optional:
-# - DASHBOARD_API_KEY        if set, addsonarqdata requires header x-api-key
-# - SONAR_INCLUDE_BRANCH_PARAMS  set to "false" if your Sonar doesn't support branches
-# - SONAR_BRANCH                 override branch name (default: CI_COMMIT_REF_NAME)
-
-sonarqube_scan:
-  stage: quality
-  image: sonarsource/sonar-scanner-cli:latest
+build:
+  stage: build
+  image: docker:latest
   tags:
     - automedtest-dashboard
-  variables:
-    GIT_DEPTH: "0"
   script:
     - |
-      INCLUDE_BRANCH="${SONAR_INCLUDE_BRANCH_PARAMS:-true}"
-      if [ "$INCLUDE_BRANCH" = "true" ]; then
-        BRANCH_NAME="${SONAR_BRANCH:-${CI_COMMIT_REF_NAME}}"
+      if [ -n "$(docker images -q ${IMAGE_NAME}:latest)" ]; then
+        echo "Tagging ${IMAGE_NAME}:latest as ${IMAGE_NAME}:previous"
+        docker rmi --force "${IMAGE_NAME}:previous"
+        docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:previous"
+        docker rmi --force "${IMAGE_NAME}:latest"
       else
-        BRANCH_NAME=""
+        echo "No ${IMAGE_NAME}:latest found."
       fi
-
-      # Scan only application source (prevents scanning large files under uploads/)
-      EXTRA_PROPS="-Dsonar.sources=src -Dsonar.exclusions=**/node_modules/**,**/.next/**,uploads/**,public/**"
-      EXTRA_PROPS="$EXTRA_PROPS -Dsonar.ws.timeout=120"
-      EXTRA_PROPS="$EXTRA_PROPS -Dsonar.javascript.node.maxspace=$SONAR_NODE_MAXSPACE"
-
-      SCAN_ARGS="-Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_TOKEN -Dsonar.projectKey=$SONAR_PROJECT_KEY"
-      if [ -n "$BRANCH_NAME" ]; then
-        SCAN_ARGS="$SCAN_ARGS -Dsonar.branch.name=$BRANCH_NAME"
-      fi
-
-      sonar-scanner $SCAN_ARGS $EXTRA_PROPS
-  artifacts:
-    when: always
-    expire_in: 7 days
-    paths:
-      - .scannerwork/report-task.txt
-  allow_failure: true
+    - docker build -t "${IMAGE_NAME}:latest" .
   rules:
     - if: '$CI_COMMIT_BRANCH == "master"'
 
-sonarqube_export_and_push:
-  stage: quality_export
-  image: alpine:3.20
+deploy:
+  stage: deploy
+  image: docker:latest
   tags:
     - automedtest-dashboard
-  dependencies:
-    - sonarqube_scan
   script:
-    - apk add --no-cache curl jq
-
-    - |
-      if [ ! -f .scannerwork/report-task.txt ]; then
-        echo "No .scannerwork/report-task.txt found (scan failed or was skipped). Skipping export/push."
-        exit 0
+    - echo "${IMAGE_NAME}"
+    - if [ "$(docker ps -aq -f name=${IMAGE_NAME})" ]; then
+      echo "Stopping and removing container ${IMAGE_NAME}...";
+      docker stop "${IMAGE_NAME}" && docker rm "${IMAGE_NAME}";
       fi
+    - >
+      docker run
+      --env NODE_ENV=production
+      --env MONGODB_URI=$MONGODB_URI
+      --env MONGODB_DB=$MONGODB_DB
+      -v /etc/localtime:/etc/localtime:ro
+      -p $EXPOSE_PORT:$PORT
+      -d --name "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
 
+sonarqube:
+  stage: sonarqube_scan
+  image:
+    name: sonarsource/sonar-scanner-cli:latest
+  tags:
+    - nene-docker
+  script:
     - |
-      INCLUDE_BRANCH="${SONAR_INCLUDE_BRANCH_PARAMS:-true}"
-      if [ "$INCLUDE_BRANCH" = "true" ]; then
-        BRANCH_NAME="${SONAR_BRANCH:-${CI_COMMIT_REF_NAME}}"
-      else
-        BRANCH_NAME=""
+      if command -v apk >/dev/null 2>&1; then
+        apk add --no-cache curl jq
+      elif command -v apt-get >/dev/null 2>&1; then
+        apt-get update -y && apt-get install -y curl jq
       fi
+    - |
+      set -eu
 
-      CE_TASK_ID="$(grep -E '^ceTaskId=' .scannerwork/report-task.txt | cut -d= -f2)"
-      echo "CE_TASK_ID=$CE_TASK_ID"; echo "BRANCH_NAME=$BRANCH_NAME"
+      required_env() {
+        name="$1"
+        eval "value=\${$name:-}"
+        if [ -z "$value" ]; then
+          echo "Missing required env: $name" >&2
+          exit 2
+        fi
+      }
 
+      required_env SONAR_HOST_URL
+      required_env SONAR_PROJECT_KEY
+      required_env SONAR_TOKEN
+      required_env MAINPRODUCT
+      required_env SUBPRODUCT
+
+      SONAR_SOURCES="${SONAR_SOURCES:-.}"
+      SONAR_METADATA_FILE="${SONAR_METADATA_FILE:-report-task.txt}"
+      SONAR_OUT_FILE="${SONAR_OUT_FILE:-sonar-summary.json}"
+      DASHBOARD_API_URL="${DASHBOARD_API_URL:-}"
+      DASHBOARD_SONAR_PATH="${DASHBOARD_SONAR_PATH:-/api/addsonarqdata}"
+
+      sonar-scanner \
+        -Dsonar.projectKey="$SONAR_PROJECT_KEY" \
+        -Dsonar.sources="$SONAR_SOURCES" \
+        -Dsonar.host.url="$SONAR_HOST_URL" \
+        -Dsonar.token="$SONAR_TOKEN" \
+        -Dsonar.scanner.metadataFilePath="$SONAR_METADATA_FILE"
+
+      CE_TASK_ID="$(grep '^ceTaskId=' "$SONAR_METADATA_FILE" | cut -d= -f2 || true)"
       if [ -z "$CE_TASK_ID" ]; then
-        echo "Missing ceTaskId in .scannerwork/report-task.txt"; exit 1
+        echo "Could not read ceTaskId from $SONAR_METADATA_FILE" >&2
+        exit 3
       fi
 
-    - |
-      for i in $(seq 1 60); do
-        CE_JSON="$(curl -s -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/ce/task?id=$CE_TASK_ID")"
-        STATUS="$(echo "$CE_JSON" | jq -r '.task.status')"
+      echo "Waiting for SonarQube task: $CE_TASK_ID" >&2
+
+      CE_JSON=""
+      STATUS=""
+      ANALYSIS_ID=""
+
+      attempt=0
+      while [ "$attempt" -lt 60 ]; do
+        CE_JSON="$(curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/ce/task?id=$CE_TASK_ID")"
+        STATUS="$(echo "$CE_JSON" | jq -r '.task.status // empty')"
         ANALYSIS_ID="$(echo "$CE_JSON" | jq -r '.task.analysisId // empty')"
-        echo "Sonar CE status: $STATUS"
-        if [ "$STATUS" = "SUCCESS" ]; then break; fi
-        if [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELED" ]; then exit 1; fi
+
+        if [ "$STATUS" = "SUCCESS" ] && [ -n "$ANALYSIS_ID" ]; then
+          break
+        fi
+
+        if [ "$STATUS" = "FAILED" ] || [ "$STATUS" = "CANCELED" ]; then
+          echo "$CE_JSON" | jq . >&2
+          exit 4
+        fi
+
+        attempt=$((attempt + 1))
         sleep 5
       done
 
-    - mkdir -p sonar-export
-
-    - |
-      QG_URL="$SONAR_HOST_URL/api/qualitygates/project_status?projectKey=$SONAR_PROJECT_KEY"
-      if [ -n "$BRANCH_NAME" ]; then QG_URL="$QG_URL&branch=$BRANCH_NAME"; fi
-      curl -s -u "$SONAR_TOKEN:" "$QG_URL" -o sonar-export/qualitygate.json
-
-    - |
-      MEASURES_URL="$SONAR_HOST_URL/api/measures/component?component=$SONAR_PROJECT_KEY"
-      if [ -n "$BRANCH_NAME" ]; then MEASURES_URL="$MEASURES_URL&branch=$BRANCH_NAME"; fi
-      # Build metricKeys dynamically to avoid "metric keys are not found" errors (varies by SonarQube version).
-      DESIRED_KEYS="reliability_issues security_issues maintainability_issues bugs vulnerabilities code_smells security_hotspots accepted_issues coverage duplicated_lines_density ncloc reliability_rating security_rating sqale_rating new_bugs new_vulnerabilities new_code_smells new_security_hotspots new_coverage new_duplicated_lines_density new_lines new_lines_to_cover new_violations new_accepted_issues"
-      # /api/metrics/search is paged; fetch all pages so we don't miss keys.
-      AVAILABLE_KEYS=""
-      FIRST_PAGE="$(curl -s -u \"$SONAR_TOKEN:\" \"$SONAR_HOST_URL/api/metrics/search?ps=500&p=1\" || true)"
-      TOTAL="$(echo "$FIRST_PAGE" | jq -r '.paging.total // 0' 2>/dev/null || echo 0)"
-      PS=500
-      if [ -z "$TOTAL" ] || [ "$TOTAL" = "null" ]; then TOTAL=0; fi
-      PAGES=$(( (TOTAL + PS - 1) / PS ))
-      if [ "$PAGES" -lt 1 ]; then PAGES=1; fi
-      for p in $(seq 1 "$PAGES"); do
-        PAGE_JSON="$FIRST_PAGE"
-        if [ "$p" -ne 1 ]; then
-          PAGE_JSON="$(curl -s -u \"$SONAR_TOKEN:\" \"$SONAR_HOST_URL/api/metrics/search?ps=$PS&p=$p\" || true)"
-        fi
-        KEYS="$(echo "$PAGE_JSON" | jq -r '.metrics[].key' 2>/dev/null || true)"
-        if [ -n "$KEYS" ]; then AVAILABLE_KEYS="$AVAILABLE_KEYS
-      $KEYS"; fi
-      done
-      METRIC_KEYS=""
-      for k in $DESIRED_KEYS; do
-        if echo "$AVAILABLE_KEYS" | grep -qx "$k"; then
-          if [ -z "$METRIC_KEYS" ]; then METRIC_KEYS="$k"; else METRIC_KEYS="$METRIC_KEYS,$k"; fi
-        fi
-      done
-      if [ -z "$METRIC_KEYS" ]; then
-        # Fallback to common metrics (should exist on all SonarQube versions)
-        METRIC_KEYS="bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc"
+      if [ "$STATUS" != "SUCCESS" ]; then
+        echo "Timed out waiting for SonarQube task ($CE_TASK_ID). Last status: $STATUS" >&2
+        echo "$CE_JSON" | jq . >&2
+        exit 5
       fi
-      echo "Using metric keys: $METRIC_KEYS"
-      MEASURES_URL="$MEASURES_URL&metricKeys=$METRIC_KEYS"
-      curl -s -u "$SONAR_TOKEN:" "$MEASURES_URL" -o sonar-export/measures.json
 
-    - |
-      # Export open issue counts (matches SonarQube UI "Open issues" numbers more closely than some measures)
-      ISSUES_URL="$SONAR_HOST_URL/api/issues/search?componentKeys=$SONAR_PROJECT_KEY&resolved=false&ps=1&facets=types"
-      if [ -n "$BRANCH_NAME" ]; then ISSUES_URL="$ISSUES_URL&branch=$BRANCH_NAME"; fi
-      curl -s -u "$SONAR_TOKEN:" "$ISSUES_URL" -o sonar-export/issues_facets.json || echo '{"facets":[]}' > sonar-export/issues_facets.json
+      QUALITY_GATE_JSON="$(curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/qualitygates/project_status?analysisId=$ANALYSIS_ID" | jq -c '.')"
 
-    - |
-      # Build a small normalized issueCounts JSON (bugs/vulnerabilities/codeSmells/securityHotspots)
+      METRICS="bugs,vulnerabilities,code_smells,security_hotspots,coverage,duplicated_lines_density,new_bugs,new_vulnerabilities,new_code_smells,new_security_hotspots,new_coverage,new_duplicated_lines_density"
+      MEASURES_RAW="$(curl -sS -u "$SONAR_TOKEN:" "$SONAR_HOST_URL/api/measures/component?component=$SONAR_PROJECT_KEY&metricKeys=$METRICS")"
+      MEASURES_JSON="$(echo "$MEASURES_RAW" | jq -c '.')"
+      MEASURE_MAP="$(echo "$MEASURES_RAW" | jq -c '.component.measures | map({(.metric): (.value // null)}) | add')"
+      CE_TASK_JSON="$(echo "$CE_JSON" | jq -c '.')"
+
       jq -n \
-        --slurpfile issues sonar-export/issues_facets.json \
-        'def countOf(t):
-           ($issues[0].facets[]? | select(.property=="types") | .values[]? | select(.val==t) | .count) // 0;
-         {
-           bugs: countOf("BUG"),
-           vulnerabilities: countOf("VULNERABILITY"),
-           codeSmells: countOf("CODE_SMELL"),
-           securityHotspots: (countOf("SECURITY_HOTSPOT"))
-         }' > sonar-export/issueCounts.json \
-      || echo '{"bugs":0,"vulnerabilities":0,"codeSmells":0,"securityHotspots":0}' > sonar-export/issueCounts.json
-
-    - |
-      NCP_URL="$SONAR_HOST_URL/api/new_code_periods/show?project=$SONAR_PROJECT_KEY"
-      if [ -n "$BRANCH_NAME" ]; then NCP_URL="$NCP_URL&branch=$BRANCH_NAME"; fi
-      curl -s -u "$SONAR_TOKEN:" "$NCP_URL" -o sonar-export/new_code_period.json
-
-    - |
-      jq -n \
-        --arg mainproduct "$SONAR_MAINPRODUCT" \
-        --arg subproduct "$SONAR_SUBPRODUCT" \
+        --arg mainproduct "$MAINPRODUCT" \
+        --arg subproduct "$SUBPRODUCT" \
         --arg projectKey "$SONAR_PROJECT_KEY" \
-        --arg branch "$BRANCH_NAME" \
-        --arg scannedAt "$(date -Iseconds)" \
-        --arg analysisId "${ANALYSIS_ID:-}" \
-        --slurpfile qg sonar-export/qualitygate.json \
-        --slurpfile measures sonar-export/measures.json \
-        --slurpfile ncp sonar-export/new_code_period.json \
-        --slurpfile issueCounts sonar-export/issueCounts.json \
-        --slurpfile issues sonar-export/issues_facets.json \
+        --arg hostUrl "$SONAR_HOST_URL" \
+        --argjson qualityGate "$QUALITY_GATE_JSON" \
+        --argjson measures "$MEASURES_JSON" \
+        --argjson ceTask "$CE_TASK_JSON" \
+        --argjson m "$MEASURE_MAP" \
         '{
           mainproduct: $mainproduct,
           subproduct: $subproduct,
           projectKey: $projectKey,
-          branch: (if ($branch|length) > 0 then $branch else null end),
-          scannedAt: $scannedAt,
-          analysisId: (if ($analysisId|length) > 0 then $analysisId else null end),
-          qualityGate: ($qg[0].projectStatus // $qg[0]),
-          measures: ($measures[0].component.measures // $measures[0].component // $measures[0]),
-          newCodePeriod: ($ncp[0].newCodePeriod // $ncp[0]),
-          issueCounts: ($issueCounts[0] // null),
-          raw: {
-            qualityGate: $qg[0],
-            measures: $measures[0],
-            newCodePeriod: $ncp[0],
-            issuesFacets: ($issues[0] // null)
-          },
-          metadata: {
-            gitlab: {
-              projectPath: env.CI_PROJECT_PATH,
-              pipelineId: env.CI_PIPELINE_ID,
-              jobId: env.CI_JOB_ID,
-              commitSha: env.CI_COMMIT_SHA
+          hostUrl: $hostUrl,
+          summary: {
+            overall: {
+              bugs: ($m.bugs | tonumber?),
+              vulnerabilities: ($m.vulnerabilities | tonumber?),
+              codeSmells: ($m.code_smells | tonumber?),
+              securityHotspots: ($m.security_hotspots | tonumber?),
+              coverage: ($m.coverage | tonumber?),
+              duplicatedLinesDensity: ($m.duplicated_lines_density | tonumber?)
+            },
+            newCode: {
+              bugs: ($m.new_bugs | tonumber?),
+              vulnerabilities: ($m.new_vulnerabilities | tonumber?),
+              codeSmells: ($m.new_code_smells | tonumber?),
+              securityHotspots: ($m.new_security_hotspots | tonumber?),
+              coverage: ($m.new_coverage | tonumber?),
+              duplicatedLinesDensity: ($m.new_duplicated_lines_density | tonumber?)
+            },
+            qualityGate: {
+              status: ($qualityGate.projectStatus.status // null),
+              conditions: ($qualityGate.projectStatus.conditions // [])
             }
+          },
+          raw: {
+            qualityGate: $qualityGate,
+            measures: $measures,
+            ceTask: $ceTask
           }
-        }' > sonar-export/payload.json
+        }' > "$SONAR_OUT_FILE"
 
-    - |
-      if [ -n "$DASHBOARD_API_KEY" ]; then
-        curl -s -X POST "$DASHBOARD_INGEST_URL" -H "Content-Type: application/json" -H "x-api-key: $DASHBOARD_API_KEY" --data @sonar-export/payload.json
-      else
-        curl -s -X POST "$DASHBOARD_INGEST_URL" -H "Content-Type: application/json" --data @sonar-export/payload.json
+      echo "Wrote $SONAR_OUT_FILE" >&2
+
+      if [ -n "$DASHBOARD_API_URL" ]; then
+        echo "Posting to dashboard: $DASHBOARD_API_URL$DASHBOARD_SONAR_PATH" >&2
+        curl -sS -X POST \
+          -H "Content-Type: application/json" \
+          "$DASHBOARD_API_URL$DASHBOARD_SONAR_PATH" \
+          --data-binary "@$SONAR_OUT_FILE" >/dev/null
       fi
   artifacts:
     when: always
-    expire_in: 7 days
     paths:
-      - sonar-export/*.json
+      - sonar-summary.json
+    expire_in: 7 days
   allow_failure: true
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
-
-# build:
-#   stage: build
-#   image: docker:latest
-#   tags:
-#     - automedtest-dashboard
-#   script:
-#     - |
-#       if [ -n "$(docker images -q ${IMAGE_NAME}:latest)" ]; then
-#         echo "Tagging ${IMAGE_NAME}:latest as ${IMAGE_NAME}:previous"
-#         docker rmi --force "${IMAGE_NAME}:previous"
-#         docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:previous"
-#         docker rmi --force "${IMAGE_NAME}:latest"
-#       else
-#         echo "No ${IMAGE_NAME}:latest found."
-#       fi
-#     - docker build -t "${IMAGE_NAME}:latest" .
-#   rules:
-#     - if: '$CI_COMMIT_BRANCH == "master"'
-
-# deploy:
-#   stage: deploy
-#   image: docker:latest
-#   tags:
-#     - automedtest-dashboard
-#   script:
-#     - echo "${IMAGE_NAME}"
-#     - if [ "$(docker ps -aq -f name=${IMAGE_NAME})" ]; then
-#       echo "Stopping and removing container ${IMAGE_NAME}...";
-#       docker stop "${IMAGE_NAME}" && docker rm "${IMAGE_NAME}";
-#       fi
-#     - >
-#       docker run
-#       --env NODE_ENV=production
-#       --env MONGODB_URI=$MONGODB_URI
-#       --env MONGODB_DB=$MONGODB_DB
-#       -v /etc/localtime:/etc/localtime:ro
-#       -p $EXPOSE_PORT:$PORT
-#       -d --name "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
-#   rules:
-#     - if: '$CI_COMMIT_BRANCH == "master"'
