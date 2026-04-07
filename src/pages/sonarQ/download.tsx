@@ -91,7 +91,7 @@ export const getServerSideProps: GetServerSideProps = async ({ query, res }) => 
         "  image:",
         "    name: sonarsource/sonar-scanner-cli:latest",
         "  tags:",
-        "    - automedtest-dashboard",
+        "    - [RUNNER_TAG]",
         "  script:",
         "    - |",
         "      if ! command -v curl >/dev/null 2>&1; then",

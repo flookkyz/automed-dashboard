@@ -50,6 +50,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: "Invalid date format. Use yyyy-mm-dd" });
       }
       filter.date = dateStr;
+    } else {
+      // If caller doesn't specify a date, prefer the latest document that actually has Sonar data.
+      // Otherwise we may accidentally return a newer doc that only has test results (nametest) and no sonar.
+      filter["sonar.projectKey"] = { $exists: true };
     }
 
     if (mainproductStr) {
