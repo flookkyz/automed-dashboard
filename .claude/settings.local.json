@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"d:\\\\automed-dashboard\\\\automed-dashboard\\\\src\" -Recurse -Include \"*.js\",\"*.jsx\",\"*.ts\",\"*.tsx\",\"*.json\")",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)"
+    ]
+  }
+}

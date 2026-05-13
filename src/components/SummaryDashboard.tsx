@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import Swal from "sweetalert2";
 import { Doughnut } from "react-chartjs-2";
 import {
@@ -66,22 +66,19 @@ function SummaryDashboard() {
         const response = await fetch(
           `/api/getsummary?date=${startDate.toISOString().split("T")[0]}`
         );
-        console.log("Fetching data for response:", response);
 
         if (!response.ok) {
           throw new Error("Network response was not ok");
         }
         const data = await response.json();
-        console.log("data", data);
 
         let finaldata: { key: string; value: any }[] = [];
-        Object.keys(data).forEach(function (key, index) {
+        Object.keys(data).forEach(function (key) {
           let newdata = { key: key, value: data[key] };
           if (newdata.value) {
             finaldata.push(newdata);
           }
         });
-        console.log("finaldata", finaldata);
 
         let sumresult: {
           pass: number;
@@ -100,7 +97,6 @@ function SummaryDashboard() {
           });
         } else {
           finaldata.forEach((item) => {
-            console.log("item", item.key);
             const sum = (item?.value.nametest ?? []).reduce(
               (
                 acc: {
@@ -131,10 +127,9 @@ function SummaryDashboard() {
           sumresult.sort((a, b) => a.name.localeCompare(b.name));
         }
 
-        if (!isMounted) return; // Don't update state if component unmounted
+        if (!isMounted) return;
 
         setSumresult(sumresult);
-        console.log("sumresult", sumresult);
       } catch (error) {
         if (!isMounted) return; // Don't update state if component unmounted
 
@@ -188,6 +183,13 @@ function SummaryDashboard() {
       },
     },
   };
+
+  const filteredSumresult = useMemo(() => sumresult.filter((item: any) => {
+    if (filter === "all") return true;
+    if (filter === "fail") return item.fail > 0;
+    if (filter === "error") return item.error > 0;
+    return true;
+  }), [sumresult, filter]);
 
   return (
     <>
@@ -266,14 +268,7 @@ function SummaryDashboard() {
             </div>
           ) : (
             (() => {
-              const filtered = sumresult.filter((item: any) => {
-                if (filter === "all") return true;
-                if (filter === "fail") return item.fail > 0;
-                if (filter === "error") return item.error > 0;
-                return true;
-              });
-
-              if (filtered.length === 0) {
+              if (filteredSumresult.length === 0) {
                 return (
                   <div className="col-span-3 flex flex-col items-center justify-center h-96">
                     <p className="font-bold text-2xl text-white">No Data 🤩</p>
@@ -281,7 +276,7 @@ function SummaryDashboard() {
                 );
               }
 
-              return filtered.map((test: any, index: number) => {
+              return filteredSumresult.map((test: any, index: number) => {
                 const doughnutChartData = {
                   labels: ["Pass", "Fail", "Error"],
                   datasets: [

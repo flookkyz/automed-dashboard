@@ -1,4 +1,4 @@
-import React, { memo, useState } from "react";
+import React, { memo, useState, useEffect } from "react";
 
 type Flag = "all" | "fail" | "error" | "pass" | undefined;
 
@@ -42,14 +42,19 @@ const MenuItem = memo((props: MenuItemProps) => {
     active,
   } = props;
 
-  const [open, setOpen] = useState(false);
-
-  // label chooses subproduct first (child) otherwise mainproduct
   const label = subproduct ?? mainproduct;
-  if (!label) return null;
-
   const isSub = Boolean(subproduct);
   const hasChildren = Array.isArray(subproducts) && subproducts.length > 0;
+
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (hasChildren && activeMain === mainproduct) {
+      setOpen(true);
+    }
+  }, [activeMain, mainproduct, hasChildren]);
+
+  if (!label) return null;
 
   // determine if this item is active (explicit active prop wins)
   const isActive =

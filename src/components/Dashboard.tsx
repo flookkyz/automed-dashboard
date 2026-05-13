@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Doughnut, Bar } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -41,6 +41,28 @@ interface NameTest {
   detailerror: object[];
 }
 
+const doughnutOptions = {
+  responsive: true,
+  maintainAspectRatio: false,
+  cutout: "70%",
+  plugins: {
+    legend: { display: false },
+    title: { display: false },
+  },
+};
+
+const barOptions = {
+  responsive: true,
+  plugins: {
+    legend: { position: "bottom" as const },
+    title: { display: false },
+  },
+  scales: {
+    x: { stacked: true, ticks: { display: false } },
+    y: { stacked: true },
+  },
+};
+
 function Dashboard({ mainproduct, subproduct }: DashboardProps) {
   const [detailPopup, setDetailPopup] = useState(false);
   const [headerDetail, setHeaderDetail] = useState("");
@@ -56,21 +78,19 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [filterText, setFilterText] = useState<string>("");
 
-  const sum = product?.nametest?.reduce(
+  const sum = useMemo(() => product?.nametest?.reduce(
     (acc: { pass: number; fail: number; error: number }, curr: NameTest) => ({
       pass: acc.pass + curr.pass,
       fail: acc.fail + curr.fail,
       error: acc.error + curr.error,
     }),
     { pass: 0, fail: 0, error: 0 },
-  );
+  ), [product]);
 
   const onDetail = (action: String, data: any, name: string) => {
     setHeaderDetail(action === "fail" ? "Fail" : "Error");
     setNameDetail(name);
-    console.log("data", data.length);
-
-    if (data.length === 0 && data.length === 0) return;
+    if (data.length === 0) return;
     setDetailPopup(true);
     setDetailTest(data);
   };
@@ -84,24 +104,22 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
     }
   };
 
-  const sortedNametest = product?.nametest
+  const sortedNametest = useMemo(() => product?.nametest
     ? [...product.nametest]
         .filter((item: NameTest) =>
           item.name.toLowerCase().includes(filterText.toLowerCase()),
         )
         .sort((a: any, b: any) => {
-          let aValue = a[sortKey];
-          let bValue = b[sortKey];
-          // ถ้าเป็น string ให้เปรียบเทียบแบบ localeCompare
+          const aValue = a[sortKey];
+          const bValue = b[sortKey];
           if (typeof aValue === "string" && typeof bValue === "string") {
             return sortOrder === "asc"
               ? aValue.localeCompare(bValue)
               : bValue.localeCompare(aValue);
           }
-          // ถ้าเป็น number ให้เปรียบเทียบแบบตัวเลข
           return sortOrder === "asc" ? aValue - bValue : bValue - aValue;
         })
-    : [];
+    : [], [product, sortKey, sortOrder, filterText]);
 
   useEffect(() => {
     if (!mainproduct || !subproduct) return;
@@ -170,13 +188,12 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       }
     };
     fetchProduct();
-    console.log("product = ", product);
     return () => {
       isMounted = false;
     };
   }, [mainproduct, subproduct, startDate]);
 
-  const doughnutChartData = {
+  const doughnutChartData = useMemo(() => ({
     labels: ["Pass", "Fail", "Error"],
     datasets: [
       {
@@ -185,9 +202,9 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
         backgroundColor: ["#66c552", "#f77575", "#f0f06c"],
       },
     ],
-  };
+  }), [sum]);
 
-  const barChartData = {
+  const barChartData = useMemo(() => ({
     labels: product?.nametest?.map((data: NameTest) => data.name),
     datasets: [
       {
@@ -206,44 +223,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
         backgroundColor: "#f0f06c",
       },
     ],
-  };
-
-  const doughnutOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    cutout: "70%",
-    plugins: {
-      legend: {
-        display: false,
-      },
-      title: {
-        display: false,
-      },
-    },
-  };
-
-  const barOptions = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "bottom" as const,
-      },
-      title: {
-        display: false,
-      },
-    },
-    scales: {
-      x: {
-        stacked: true,
-        ticks: {
-          display: false, // ซ่อนชื่อ data ข้างล่างกราฟแท่ง
-        },
-      },
-      y: {
-        stacked: true,
-      },
-    },
-  };
+  }), [product]);
 
   const isLoading = loadingDates || loadingProduct;
   if (isLoading) {

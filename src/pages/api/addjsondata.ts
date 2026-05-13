@@ -155,6 +155,7 @@ export default async function handler(
     console.error(
       `[ERROR] mainproduct="${data.mainproduct}" subproduct="${data.subproduct}" date="${data.date}" failed: ${reason}`
     );
+    console.error("[ERROR] Request body:", JSON.stringify(req.body, null, 2));
     return res.status(500).json({ message: `Internal server error: ${reason}` });
   }
 }

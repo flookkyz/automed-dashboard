@@ -16,12 +16,10 @@ type Product = {
 function NewNavbarpage() {
   const router = useRouter();
   const [scarchInputValue, setScarchInputValue] = useState("");
-  const [activeMain, setActiveMain] = useState<string | undefined>(undefined);
-  const [activeSub, setActiveSub] = useState<string | undefined>(undefined);
+  const activeMain = typeof router.query.mainproduct === "string" ? router.query.mainproduct : undefined;
+  const activeSub = typeof router.query.subproduct === "string" ? router.query.subproduct : undefined;
 
   const handleSelect = useCallback((main?: string, sub?: string) => {
-    setActiveMain(main);
-    setActiveSub(sub);
     if (!main) {
       router.push("/");
     } else if (sub) {

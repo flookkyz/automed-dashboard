@@ -58,7 +58,7 @@ export default async function handler(
 
     // Parse XML to JSON (use Formidable temp file; avoid writing to /app/uploads)
     try {
-      const xml = fs.readFileSync(file.filepath, "utf-8");
+      const xml = await fs.promises.readFile(file.filepath, "utf-8");
       const result = await xml2js.parseStringPromise(xml, {
         mergeAttrs: true,
       });
@@ -216,7 +216,10 @@ export default async function handler(
       console.error(
         `[ERROR] mainproduct="${String(reqmainproduct)}" subproduct="${String(reqsubproduct)}" failed: ${reason}`
       );
+      console.error("[ERROR] Request fields:", JSON.stringify(fields, null, 2));
       return res.status(500).json({ error: `Error processing XML data: ${reason}` });
+    } finally {
+      fs.promises.unlink(file.filepath).catch(() => {});
     }
   });
 }

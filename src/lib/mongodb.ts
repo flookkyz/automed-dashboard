@@ -1,7 +1,13 @@
-import { MongoClient } from 'mongodb';
+import { MongoClient, MongoClientOptions } from 'mongodb';
 
 const uri = process.env.MONGODB_URI;
-const options = {};
+const options: MongoClientOptions = {
+  maxPoolSize: 10,
+  minPoolSize: 2,
+  serverSelectionTimeoutMS: 5000,
+  connectTimeoutMS: 10000,
+  socketTimeoutMS: 45000,
+};
 
 let client: MongoClient | undefined;
 let clientPromise: Promise<MongoClient>;
