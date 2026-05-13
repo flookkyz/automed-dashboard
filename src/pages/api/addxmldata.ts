@@ -204,11 +204,19 @@ export default async function handler(
         { upsert: true }
       );
 
+      console.log(
+        `[SUCCESS] mainproduct="${String(reqmainproduct)}" subproduct="${String(reqsubproduct)}" date="${nowdate}" saved successfully`
+      );
+
       return res.status(200).json({
         message: "Data saved successfully in product " + reqsubproduct,
       });
     } catch (parseError) {
-      return res.status(500).json({ error: "Error parsing XML to JSON" });
+      const reason = parseError instanceof Error ? parseError.message : String(parseError);
+      console.error(
+        `[ERROR] mainproduct="${String(reqmainproduct)}" subproduct="${String(reqsubproduct)}" failed: ${reason}`
+      );
+      return res.status(500).json({ error: `Error processing XML data: ${reason}` });
     }
   });
 }

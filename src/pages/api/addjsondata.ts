@@ -86,69 +86,75 @@ export default async function handler(
   data.date = getThailandDateString(); // Only keep the date part in Thailand timezone
   data.time = getThailandTimeString(); // Add time in HH:MM:ss format
 
-  const client = await clientPromise;
-  const db = client.db("automedtest-dashboard");
+  try {
+    const client = await clientPromise;
+    const db = client.db("automedtest-dashboard");
 
-  const productNameCollection = db.collection("product_name");
-  const existingMainProduct = await productNameCollection.findOne({
-    mainProduct: data.mainproduct,
-  });
-
-  if (existingMainProduct) {
-    // Check if subProduct already exists in the array
-    const subProductExists =
-      Array.isArray(existingMainProduct.subProduct) &&
-      existingMainProduct.subProduct.includes(data.subproduct);
-
-    if (!subProductExists) {
-      // Add subProduct to existing mainProduct (only if not duplicate)
-      await productNameCollection.updateOne(
-        { mainProduct: data.mainproduct },
-        { $addToSet: { subProduct: data.subproduct as string } }
-      );
-    }
-  } else {
-    // Create new mainProduct with subProduct array
-    await productNameCollection.insertOne({
+    const productNameCollection = db.collection("product_name");
+    const existingMainProduct = await productNameCollection.findOne({
       mainProduct: data.mainproduct,
-      subProduct: [data.subproduct],
     });
-  }
 
-  const existingDoc = await db
-    .collection(data.subproduct)
-    .findOne({ date: data.date });
+    if (existingMainProduct) {
+      const subProductExists =
+        Array.isArray(existingMainProduct.subProduct) &&
+        existingMainProduct.subProduct.includes(data.subproduct);
 
-  if (existingDoc) {
-    // Merge nametest arrays
-    const existingTests = existingDoc.nametest || [];
-    const newTests = data.nametest;
-
-    const mergedTests = [...existingTests];
-
-    newTests.forEach((newTest) => {
-      const index = mergedTests.findIndex((test) => test.name === newTest.name);
-      if (index !== -1) {
-        // Overwrite existing test
-        mergedTests[index] = newTest;
-      } else {
-        // Add new test
-        mergedTests.push(newTest);
+      if (!subProductExists) {
+        await productNameCollection.updateOne(
+          { mainProduct: data.mainproduct },
+          { $addToSet: { subProduct: data.subproduct as string } }
+        );
       }
+    } else {
+      await productNameCollection.insertOne({
+        mainProduct: data.mainproduct,
+        subProduct: [data.subproduct],
+      });
+    }
+
+    const existingDoc = await db
+      .collection(data.subproduct)
+      .findOne({ date: data.date });
+
+    if (existingDoc) {
+      const existingTests = existingDoc.nametest || [];
+      const newTests = data.nametest;
+
+      const mergedTests = [...existingTests];
+
+      newTests.forEach((newTest) => {
+        const index = mergedTests.findIndex((test) => test.name === newTest.name);
+        if (index !== -1) {
+          mergedTests[index] = newTest;
+        } else {
+          mergedTests.push(newTest);
+        }
+      });
+
+      data.nametest = mergedTests;
+    }
+
+    const { subproduct, ...dataWithoutNameproduct } = data;
+
+    await db.collection(subproduct).updateOne(
+      { date: data.date },
+      { $set: dataWithoutNameproduct },
+      { upsert: true }
+    );
+
+    console.log(
+      `[SUCCESS] mainproduct="${data.mainproduct}" subproduct="${subproduct}" date="${data.date}" saved successfully`
+    );
+
+    return res.status(200).json({
+      message: "Data saved successfully in product " + subproduct,
     });
-
-    data.nametest = mergedTests;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(
+      `[ERROR] mainproduct="${data.mainproduct}" subproduct="${data.subproduct}" date="${data.date}" failed: ${reason}`
+    );
+    return res.status(500).json({ message: `Internal server error: ${reason}` });
   }
-
-  const { subproduct, ...dataWithoutNameproduct } = data;
-
-  await db.collection(subproduct).updateOne(
-    { date: data.date }, // Filter by date
-    { $set: dataWithoutNameproduct }, // Update the document
-    { upsert: true } // Insert if not exists
-  );
-
-  return res.status(200).json({
-    message: "Data saved successfully in product " + subproduct,
-  });
 }

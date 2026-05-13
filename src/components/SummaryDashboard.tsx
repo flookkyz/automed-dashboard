@@ -101,7 +101,7 @@ function SummaryDashboard() {
         } else {
           finaldata.forEach((item) => {
             console.log("item", item.key);
-            const sum = item?.value.nametest.reduce(
+            const sum = (item?.value.nametest ?? []).reduce(
               (
                 acc: {
                   pass: number;
