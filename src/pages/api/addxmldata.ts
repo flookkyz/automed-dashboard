@@ -34,6 +34,7 @@ export default async function handler(
   res: NextApiResponse
 ) {
   if (req.method !== "POST") {
+    console.warn(`[WARN] addxmldata: Method ${req.method} not allowed`);
     res.setHeader("Allow", ["POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
@@ -41,10 +42,12 @@ export default async function handler(
   const form = formidable();
   form.parse(req, async (err, fields, files) => {
     if (err) {
+      console.warn(`[WARN] addxmldata: Error parsing form data: ${err.message}`);
       return res.status(400).json({ error: "Error parsing the form data" });
     }
 
     if (!fields.mainproduct || !fields.subproduct) {
+      console.warn("[WARN] addxmldata: Invalid or missing mainproduct or subproduct", { mainproduct: fields.mainproduct, subproduct: fields.subproduct });
       return res.status(400).json({ error: "Invalid or missing mainproduct or subproduct" });
     }
     const reqmainproduct = fields.mainproduct;
@@ -53,6 +56,7 @@ export default async function handler(
     const file = Array.isArray(uploaded) ? uploaded[0] : uploaded;
 
     if (!file) {
+      console.warn(`[WARN] addxmldata: File not found in request (mainproduct="${String(reqmainproduct)}" subproduct="${String(reqsubproduct)}")`);
       return res.status(400).json({ error: "File not found in the request" });
     }
 
@@ -90,6 +94,7 @@ export default async function handler(
 
       const suites = (result as any)?.testsuites?.testsuite as TestSuite[] | undefined;
       if (!Array.isArray(suites)) {
+        console.warn(`[WARN] addxmldata: Invalid XML format - testsuites.testsuite not found (mainproduct="${String(reqmainproduct)}" subproduct="${String(reqsubproduct)}")`);
         return res.status(400).json({ error: "Invalid XML format: testsuites.testsuite not found" });
       }
 

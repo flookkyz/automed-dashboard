@@ -34,6 +34,7 @@ export default async function handler(
   res: NextApiResponse<Data>
 ) {
   if (req.method !== "POST") {
+    console.warn(`[WARN] addjsondata: Method ${req.method} not allowed`);
     res.setHeader("Allow", ["POST"]);
     return res.status(405).end(`Method ${req.method} Not Allowed`);
   }
@@ -44,19 +45,23 @@ export default async function handler(
 
   // Validate data fields
   if (!data.mainproduct || typeof data.mainproduct !== "string") {
+    console.warn("[WARN] addjsondata validation failed: Invalid or missing mainproduct", { body: req.body });
     return res.status(400).json({ message: "Invalid or missing mainproduct" });
   }
 
   if (!data.subproduct || typeof data.subproduct !== "string") {
+    console.warn(`[WARN] addjsondata validation failed: Invalid or missing subproduct (mainproduct="${data.mainproduct}")`, { subproduct: data.subproduct });
     return res.status(400).json({ message: "Invalid or missing subproduct" });
   }
 
   if (!Array.isArray(data.nametest) || data.nametest.length === 0) {
+    console.warn(`[WARN] addjsondata validation failed: Invalid or missing nametest (mainproduct="${data.mainproduct}" subproduct="${data.subproduct}")`);
     return res.status(400).json({ message: "Invalid or missing nametest" });
   }
 
   for (const test of data.nametest) {
     if (!test.name || typeof test.name !== "string") {
+      console.warn(`[WARN] addjsondata validation failed: Invalid or missing test name (mainproduct="${data.mainproduct}" subproduct="${data.subproduct}")`);
       return res.status(400).json({ message: "Invalid or missing test name" });
     }
     if (
@@ -64,6 +69,7 @@ export default async function handler(
       typeof test.fail !== "number" ||
       typeof test.error !== "number"
     ) {
+      console.warn(`[WARN] addjsondata validation failed: Invalid pass/fail/error for test "${test.name}" (mainproduct="${data.mainproduct}" subproduct="${data.subproduct}")`);
       return res.status(400).json({
         message: "Invalid or missing pass, fail, or error values",
       });
