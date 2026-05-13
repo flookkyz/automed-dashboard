@@ -2,17 +2,13 @@ import React from "react";
 import { useRouter } from "next/router";
 import MainProductDashboard from "../../components/MainProductDashboard";
 
-const MainProductPage = () => {
+export default function MainProductPage() {
   const router = useRouter();
-  const { mainproduct = "" } = router.query;
+  const mainproduct = typeof router.query.mainproduct === "string" ? router.query.mainproduct : "";
 
   return (
-    <>
-      <div className="ml-64">
-        <MainProductDashboard mainproduct={mainproduct.toString()} />
-      </div>
-    </>
+    <div className="ml-64">
+      <MainProductDashboard mainproduct={mainproduct} />
+    </div>
   );
-};
-
-export default MainProductPage;
+}

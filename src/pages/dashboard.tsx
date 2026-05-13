@@ -1,15 +1,10 @@
 import React from "react";
 import SummaryDashboard from "../components/SummaryDashboard";
 
-const MainDashboard = () => {
- 
+export default function MainDashboard() {
   return (
-    <>
-      <div className="ml-64">
-        <SummaryDashboard  />
-      </div>
-    </>
+    <div className="ml-64">
+      <SummaryDashboard />
+    </div>
   );
-};
-
-export default MainDashboard;
+}

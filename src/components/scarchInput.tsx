@@ -10,9 +10,6 @@ const SearchInput = memo((props: InputProps) => {
   const { placeholder, value, onChange } = props;
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  // If caller passes a Tailwind width class (like 'w-64' or 'w-full'), use it.
-  // Otherwise fallback to 'w-full'. This keeps the component flexible.
-
   const handleClear = () => {
     onChange("");
     if (inputRef.current) {
@@ -21,7 +18,7 @@ const SearchInput = memo((props: InputProps) => {
   };
 
   return (
-    <div className={`relative w-full`}>
+    <div className="relative w-full">
       {/* Magnifying glass icon on the left */}
       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none">
         <svg
@@ -51,7 +48,7 @@ const SearchInput = memo((props: InputProps) => {
         ref={inputRef}
         type="text"
         placeholder={placeholder || "Search"}
-        className={`block w-full pl-10 pr-10 py-2 bg-white border border-gray-600 rounded-[7px] text-black focus:outline-none focus:ring-none`}
+        className="block w-full pl-10 pr-10 py-2 bg-white border border-gray-600 rounded-[7px] text-black focus:outline-none focus:ring-none"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />

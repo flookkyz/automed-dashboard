@@ -80,55 +80,55 @@ export default async function handler(
   const nowDate = getThailandDateString();
   const nowTime = getThailandTimeString();
 
-  const client = await clientPromise;
-  const db = client.db("automedtest-dashboard");
+  try {
+    const client = await clientPromise;
+    const db = client.db("automedtest-dashboard");
 
-  // Keep product_name in sync (same behavior as addjsondata/addxmldata)
-  const productNameCollection = db.collection("product_name");
-  const existingMainProduct = await productNameCollection.findOne({
-    mainProduct: body.mainproduct,
-  });
-
-  if (existingMainProduct) {
-    const subProductExists =
-      Array.isArray((existingMainProduct as any).subProduct) &&
-      (existingMainProduct as any).subProduct.includes(body.subproduct);
-
-    if (!subProductExists) {
-      await productNameCollection.updateOne(
-        { mainProduct: body.mainproduct },
-        { $addToSet: { subProduct: body.subproduct } }
-      );
-    }
-  } else {
-    await productNameCollection.insertOne({
+    const productNameCollection = db.collection("product_name");
+    const existingMainProduct = await productNameCollection.findOne({
       mainProduct: body.mainproduct,
-      subProduct: [body.subproduct],
     });
+
+    if (existingMainProduct) {
+      const subProductExists =
+        Array.isArray((existingMainProduct as any).subProduct) &&
+        (existingMainProduct as any).subProduct.includes(body.subproduct);
+
+      if (!subProductExists) {
+        await productNameCollection.updateOne(
+          { mainProduct: body.mainproduct },
+          { $addToSet: { subProduct: body.subproduct } }
+        );
+      }
+    } else {
+      await productNameCollection.insertOne({
+        mainProduct: body.mainproduct,
+        subProduct: [body.subproduct],
+      });
+    }
+
+    const sonarDoc = {
+      projectKey: body.projectKey,
+      hostUrl: typeof body.hostUrl === "string" ? body.hostUrl : undefined,
+      branch: typeof body.branch === "string" ? body.branch : undefined,
+      fetchedAtDate: nowDate,
+      fetchedAtTime: nowTime,
+      summary: body.summary ?? undefined,
+      raw: body.raw ?? undefined,
+    };
+
+    await db.collection(body.subproduct).updateOne(
+      { date: nowDate },
+      { $set: { mainproduct: body.mainproduct, sonar: sonarDoc } },
+      { upsert: true }
+    );
+
+    return res.status(200).json({
+      message: `SonarQube data saved successfully in product ${body.subproduct}`,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[ERROR] addsonarqdata mainproduct="${body.mainproduct}" subproduct="${body.subproduct}" failed: ${reason}`);
+    return res.status(500).json({ error: `Internal server error: ${reason}` });
   }
-
-  const sonarDoc = {
-    projectKey: body.projectKey,
-    hostUrl: typeof body.hostUrl === "string" ? body.hostUrl : undefined,
-    branch: typeof body.branch === "string" ? body.branch : undefined,
-    fetchedAtDate: nowDate,
-    fetchedAtTime: nowTime,
-    summary: body.summary ?? undefined,
-    raw: body.raw ?? undefined,
-  };
-
-  await db.collection(body.subproduct).updateOne(
-    { date: nowDate },
-    {
-      $set: {
-        mainproduct: body.mainproduct,
-        sonar: sonarDoc,
-      },
-    },
-    { upsert: true }
-  );
-
-  return res.status(200).json({
-    message: `SonarQube data saved successfully in product ${body.subproduct}`,
-  });
 }
