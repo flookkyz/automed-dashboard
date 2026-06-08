@@ -581,8 +581,9 @@ function parseRobotFrameworkOutputFile(filePath: string): Promise<AppiumResult> 
 
 function parseRobotFrameworkOutputFileFast(filePath: string): Promise<AppiumResult> {
   // Faster mode: count pass/fail and collect only failed test details.
+  // Uses htmlparser2 (much faster than sax) in streaming/xml mode.
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const sax = require("sax") as any;
+  const { Parser } = require("htmlparser2") as any;
 
   return new Promise((resolve, reject) => {
     const failedTests: TestDetail[] = [];
@@ -623,167 +624,162 @@ function parseRobotFrameworkOutputFileFast(filePath: string): Promise<AppiumResu
       return truncateReason(preferred || candidates[candidates.length - 1]);
     }
 
-    const parser = sax.createStream(true, {
-      trim: true,
-    });
+    const parser = new Parser(
+      {
+        onopentag(rawName: string, attributes: Record<string, string>) {
+          const tagName = String(rawName);
+          stack.push(tagName);
 
-    parser.on("opentag", (node: any) => {
-      const tagName = String(node.name);
-      stack.push(tagName);
+          if (tagName === "suite") {
+            const parent = stack[stack.length - 2];
+            if (!suiteName && parent === "robot") {
+              suiteName = String(attributes?.name || "").trim() || undefined;
+            }
+          }
 
-      if (tagName === "suite") {
-        const parent = stack[stack.length - 2];
-        if (!suiteName && parent === "robot") {
-          suiteName = String(node.attributes?.name || "").trim() || undefined;
-        }
-      }
+          if (tagName === "doc" && stack[stack.length - 2] === "suite") {
+            capturingSuiteDoc = true;
+            suiteDocBuffer = "";
+            return;
+          }
 
-      if (tagName === "doc" && stack[stack.length - 2] === "suite") {
-        capturingSuiteDoc = true;
-        suiteDocBuffer = "";
-        return;
-      }
+          if (tagName === "test") {
+            currentTestName = String(attributes?.name || "");
+            currentTestStatus = "UNKNOWN";
+            currentTestStart = undefined;
+            currentTestElapsed = undefined;
+            failMsgCandidates.length = 0;
+            failStatusCandidates.length = 0;
+            capturingFailMsg = false;
+            capturingFailStatusText = false;
+            failMsgBuffer = "";
+            failStatusTextBuffer = "";
+            return;
+          }
 
-      if (tagName === "test") {
-        currentTestName = String(node.attributes?.name || "");
-        currentTestStatus = "UNKNOWN";
-        currentTestStart = undefined;
-        currentTestElapsed = undefined;
-        failMsgCandidates.length = 0;
-        failStatusCandidates.length = 0;
-        capturingFailMsg = false;
-        capturingFailStatusText = false;
-        failMsgBuffer = "";
-        failStatusTextBuffer = "";
-        return;
-      }
+          if (tagName === "status") {
+            const rawStatus = attributes?.status ?? attributes?.STATUS ?? attributes?.Status;
+            const normalized = normalizeStatus(rawStatus);
 
-      if (tagName === "status") {
-        const rawStatus = node.attributes?.status ?? node.attributes?.STATUS ?? node.attributes?.Status;
-        const normalized = normalizeStatus(rawStatus);
+            if (stack[stack.length - 2] === "test") {
+              currentTestStatus = normalized;
+              const start = attributes?.start ?? attributes?.START;
+              const elapsed = attributes?.elapsed ?? attributes?.ELAPSED;
+              if (start) currentTestStart = String(start);
+              const elapsedSeconds = toNumber(elapsed);
+              if (elapsedSeconds) currentTestElapsed = elapsedSeconds;
+            }
 
-        if (stack[stack.length - 2] === "test") {
-          currentTestStatus = normalized;
-          const start = node.attributes?.start ?? node.attributes?.START;
-          const elapsed = node.attributes?.elapsed ?? node.attributes?.ELAPSED;
-          if (start) currentTestStart = String(start);
-          const elapsedSeconds = toNumber(elapsed);
-          if (elapsedSeconds) currentTestElapsed = elapsedSeconds;
-        }
+            if (normalized === "FAIL") {
+              capturingFailStatusText = true;
+              failStatusTextBuffer = "";
+            }
+            return;
+          }
 
-        if (normalized === "FAIL") {
-          capturingFailStatusText = true;
-          failStatusTextBuffer = "";
-        }
-        return;
-      }
+          if (tagName === "msg") {
+            const level = String(attributes?.level || attributes?.LEVEL || "").toUpperCase();
+            if (level === "FAIL") {
+              capturingFailMsg = true;
+              failMsgBuffer = "";
+            }
+          }
+        },
 
-      if (tagName === "msg") {
-        const level = String(node.attributes?.level || node.attributes?.LEVEL || "").toUpperCase();
-        if (level === "FAIL") {
-          capturingFailMsg = true;
-          failMsgBuffer = "";
-        }
-      }
-    });
+        // htmlparser2 delivers both regular text and CDATA content via ontext.
+        ontext(text: string) {
+          if (capturingSuiteDoc) {
+            if (suiteDocBuffer.length < 5000) suiteDocBuffer += text;
+          }
+          if (capturingFailStatusText) {
+            if (failStatusTextBuffer.length < 20000) failStatusTextBuffer += text;
+          }
+          if (capturingFailMsg) {
+            if (failMsgBuffer.length < 20000) failMsgBuffer += text;
+          }
+        },
 
-    parser.on("text", (text: string) => {
-      if (capturingSuiteDoc) {
-        if (suiteDocBuffer.length < 5000) suiteDocBuffer += text;
-      }
-      if (capturingFailStatusText) {
-        if (failStatusTextBuffer.length < 20000) failStatusTextBuffer += text;
-      }
-      if (capturingFailMsg) {
-        if (failMsgBuffer.length < 20000) failMsgBuffer += text;
-      }
-    });
+        onclosetag(name: string) {
+          const tagName = String(name);
 
-    parser.on("cdata", (text: string) => {
-      if (capturingSuiteDoc) {
-        if (suiteDocBuffer.length < 5000) suiteDocBuffer += text;
-      }
-      if (capturingFailStatusText) {
-        if (failStatusTextBuffer.length < 20000) failStatusTextBuffer += text;
-      }
-      if (capturingFailMsg) {
-        if (failMsgBuffer.length < 20000) failMsgBuffer += text;
-      }
-    });
+          if (tagName === "doc") {
+            if (capturingSuiteDoc) {
+              const docText = suiteDocBuffer.trim();
+              if (docText) suiteName = docText;
+            }
+            capturingSuiteDoc = false;
+            suiteDocBuffer = "";
+          }
 
-    parser.on("closetag", (name: string) => {
-      const tagName = String(name);
+          if (tagName === "msg") {
+            if (capturingFailMsg) {
+              const msg = failMsgBuffer.trim();
+              if (msg) failMsgCandidates.push(msg);
+            }
+            capturingFailMsg = false;
+            failMsgBuffer = "";
+          }
 
-      if (tagName === "doc") {
-        if (capturingSuiteDoc) {
-          const docText = suiteDocBuffer.trim();
-          if (docText) suiteName = docText;
-        }
-        capturingSuiteDoc = false;
-        suiteDocBuffer = "";
-      }
+          if (tagName === "status") {
+            if (capturingFailStatusText) {
+              const statusText = failStatusTextBuffer.trim();
+              if (statusText) failStatusCandidates.push(statusText);
+            }
+            capturingFailStatusText = false;
+            failStatusTextBuffer = "";
+          }
 
-      if (tagName === "msg") {
-        if (capturingFailMsg) {
-          const msg = failMsgBuffer.trim();
-          if (msg) failMsgCandidates.push(msg);
-        }
-        capturingFailMsg = false;
-        failMsgBuffer = "";
-      }
+          if (tagName === "test") {
+            totalTests += 1;
+            if (currentTestStatus === "PASS") pass += 1;
+            else if (currentTestStatus === "SKIP") skipped += 1;
+            else if (currentTestStatus === "FAIL") failures += 1;
 
-      if (tagName === "status") {
-        if (capturingFailStatusText) {
-          const statusText = failStatusTextBuffer.trim();
-          if (statusText) failStatusCandidates.push(statusText);
-        }
-        capturingFailStatusText = false;
-        failStatusTextBuffer = "";
-      }
+            if (typeof currentTestElapsed === "number") {
+              totalElapsedSeconds += currentTestElapsed;
+            }
 
-      if (tagName === "test") {
-        totalTests += 1;
-        if (currentTestStatus === "PASS") pass += 1;
-        else if (currentTestStatus === "SKIP") skipped += 1;
-        else if (currentTestStatus === "FAIL") failures += 1;
+            if (currentTestStatus === "FAIL") {
+              failedTests.push({
+                name: currentTestName,
+                status: "FAIL",
+                start: currentTestStart,
+                elapsedSeconds: currentTestElapsed,
+                failReason: pickBestFailReason(),
+              });
+            }
+          }
 
-        if (typeof currentTestElapsed === "number") {
-          totalElapsedSeconds += currentTestElapsed;
-        }
+          stack.pop();
+        },
 
-        if (currentTestStatus === "FAIL") {
-          failedTests.push({
-            name: currentTestName,
-            status: "FAIL",
-            start: currentTestStart,
-            elapsedSeconds: currentTestElapsed,
-            failReason: pickBestFailReason(),
+        onend() {
+          resolve({
+            totalTests,
+            pass,
+            fail: failures,
+            failures,
+            errors: 0,
+            skipped,
+            tests: failedTests,
+            suiteName,
+            totalElapsedSeconds: Number(totalElapsedSeconds.toFixed(6)),
           });
-        }
-      }
+        },
 
-      stack.pop();
-    });
+        onerror(error: any) {
+          reject(error);
+        },
+      },
+      { xmlMode: true, decodeEntities: true }
+    );
 
-    parser.on("end", () => {
-      resolve({
-        totalTests,
-        pass,
-        fail: failures,
-        failures,
-        errors: 0,
-        skipped,
-        tests: failedTests,
-        suiteName,
-        totalElapsedSeconds: Number(totalElapsedSeconds.toFixed(6)),
-      });
-    });
-
-    parser.on("error", (error: any) => {
-      reject(error);
-    });
-
-    createReadStream(filePath, { encoding: "utf-8" }).pipe(parser);
+    const stream = createReadStream(filePath, { encoding: "utf-8" });
+    stream.on("data", (chunk: string | Buffer) =>
+      parser.write(typeof chunk === "string" ? chunk : chunk.toString("utf-8"))
+    );
+    stream.on("end", () => parser.end());
+    stream.on("error", (error: any) => reject(error));
   });
 }
 
