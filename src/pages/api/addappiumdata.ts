@@ -1,8 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import formidable from "formidable";
-import { createReadStream } from "fs";
+import { createReadStream, createWriteStream } from "fs";
 import fs from "fs/promises";
 import path from "path";
+import zlib from "zlib";
+import { pipeline } from "stream/promises";
 import clientPromise from "../../lib/mongodb";
 import xml2js from "xml2js";
 
@@ -366,6 +368,55 @@ async function detectRobotFrameworkXml(filePath: string): Promise<boolean> {
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
     const head = buffer.subarray(0, bytesRead).toString("utf-8");
     return head.includes("<robot");
+  } finally {
+    await handle.close();
+  }
+}
+
+type UploadKind = { kind: "gzip" | "xml" | "unsupported"; detected?: string };
+
+// Detect the uploaded file type by magic bytes (not by filename, which form-data may not carry).
+// Supported: gzip (.gz) and plain XML. Anything else (zip, rar, binary) is rejected.
+async function detectUploadKind(filePath: string): Promise<UploadKind> {
+  const handle = await fs.open(filePath, "r");
+  try {
+    const buffer = Buffer.alloc(64);
+    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+    const head = buffer.subarray(0, bytesRead);
+
+    // gzip: 1f 8b
+    if (bytesRead >= 2 && head[0] === 0x1f && head[1] === 0x8b) {
+      return { kind: "gzip" };
+    }
+    // zip: "PK" (50 4b)
+    if (bytesRead >= 2 && head[0] === 0x50 && head[1] === 0x4b) {
+      return { kind: "unsupported", detected: "zip" };
+    }
+    // rar: "Rar!" (52 61 72 21)
+    if (
+      bytesRead >= 4 &&
+      head[0] === 0x52 &&
+      head[1] === 0x61 &&
+      head[2] === 0x72 &&
+      head[3] === 0x21
+    ) {
+      return { kind: "unsupported", detected: "rar" };
+    }
+
+    // plain XML/text: first non-whitespace byte is "<" (allow a UTF-8 BOM)
+    let i = 0;
+    if (bytesRead >= 3 && head[0] === 0xef && head[1] === 0xbb && head[2] === 0xbf) i = 3;
+    while (
+      i < bytesRead &&
+      (head[i] === 0x20 || head[i] === 0x09 || head[i] === 0x0a || head[i] === 0x0d)
+    ) {
+      i += 1;
+    }
+    if (i < bytesRead && head[i] === 0x3c) {
+      return { kind: "xml" };
+    }
+
+    return { kind: "unsupported", detected: "unknown" };
   } finally {
     await handle.close();
   }
@@ -904,15 +955,45 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
+      // Accept .xml and .gz only (detected by magic bytes, not filename).
+      const uploadKind = await detectUploadKind(file.filepath);
+      if (uploadKind.kind === "unsupported") {
+        console.error(
+          `[ERROR] addappiumdata unsupported file format: detected="${uploadKind.detected || "unknown"}" file="${file.originalFilename || ""}"`
+        );
+        return res.status(415).json({
+          error: "Unsupported file format",
+          accepted: [".xml", ".gz"],
+          hint: "รองรับเฉพาะไฟล์ .xml และ .gz (สำหรับไฟล์เกิน 100MB แนะนำให้บีบอัดเป็น .gz)",
+        });
+      }
+
+      // If gzip, decompress to a temp file first so the existing detect/parse path can read it.
+      let parsePath = file.filepath;
+      let tempDecompressed: string | undefined;
+      if (uploadKind.kind === "gzip") {
+        const tGunzipStart = Date.now();
+        tempDecompressed = `${file.filepath}.decompressed.xml`;
+        await pipeline(
+          createReadStream(file.filepath),
+          zlib.createGunzip(),
+          createWriteStream(tempDecompressed)
+        );
+        parsePath = tempDecompressed;
+        console.log(
+          `[INFO] addappiumdata gzip upload decompressed in ${Date.now() - tGunzipStart}ms -> "${parsePath}"`
+        );
+      }
+
       try {
         const tParseStart = Date.now();
-        const isRobot = await detectRobotFrameworkXml(file.filepath);
+        const isRobot = await detectRobotFrameworkXml(parsePath);
         console.log(
           `[INFO] addappiumdata parsing file="${file.originalFilename || ""}" detected format=${isRobot ? "RobotFramework" : "AppiumJUnit"}`
         );
         const parsed = isRobot
-          ? await parseRobotFrameworkOutputFileFast(file.filepath)
-          : await parseAppiumJUnitXml(await fs.readFile(file.filepath, "utf-8"));
+          ? await parseRobotFrameworkOutputFileFast(parsePath)
+          : await parseAppiumJUnitXml(await fs.readFile(parsePath, "utf-8"));
 
         const tParseEnd = Date.now();
         console.log(
@@ -946,6 +1027,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           error
         );
         return res.status(500).json({ error: "Error parsing XML" });
+      } finally {
+        // Clean up the decompressed temp file (formidable cleans its own upload temp).
+        if (tempDecompressed) {
+          await fs.unlink(tempDecompressed).catch(() => {});
+        }
       }
     });
   }
