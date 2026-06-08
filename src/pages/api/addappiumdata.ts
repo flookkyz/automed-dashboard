@@ -836,7 +836,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   if (req.method === "POST") {
-    const form = formidable({ multiples: false });
+    const MAX_UPLOAD_BYTES =
+      Number(process.env.APPIUM_MAX_UPLOAD_BYTES) || 1 * 1024 * 1024 * 1024; // default 1GB
+    const form = formidable({
+      multiples: false,
+      maxFileSize: MAX_UPLOAD_BYTES,
+      maxTotalFileSize: MAX_UPLOAD_BYTES,
+    });
 
     console.log(
       `[INFO] addappiumdata POST received: content-type="${req.headers["content-type"] || ""}" content-length="${req.headers["content-length"] || ""}"`
@@ -845,6 +851,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return form.parse(req, async (err, fields, files) => {
       if (err) {
         console.error("[ERROR] addappiumdata failed to parse form-data:", err);
+        // formidable size-limit errors carry code 1009 (maxFileSize) / 1015 (maxTotalFileSize)
+        const isTooLarge =
+          (err as any)?.httpCode === 413 ||
+          (err as any)?.code === 1009 ||
+          (err as any)?.code === 1015;
+        if (isTooLarge) {
+          const maxMb = Math.round(MAX_UPLOAD_BYTES / (1024 * 1024));
+          return res.status(413).json({
+            error: "Uploaded file too large",
+            maxFileSizeBytes: MAX_UPLOAD_BYTES,
+            hint: `File exceeds the upload limit of ${maxMb} MB. Increase APPIUM_MAX_UPLOAD_BYTES to allow larger files.`,
+          });
+        }
         return res.status(400).json({ error: "Error parsing form-data" });
       }
 
