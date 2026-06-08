@@ -838,15 +838,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method === "POST") {
     const form = formidable({ multiples: false });
 
+    console.log(
+      `[INFO] addappiumdata POST received: content-type="${req.headers["content-type"] || ""}" content-length="${req.headers["content-length"] || ""}"`
+    );
+
     return form.parse(req, async (err, fields, files) => {
       if (err) {
+        console.error("[ERROR] addappiumdata failed to parse form-data:", err);
         return res.status(400).json({ error: "Error parsing form-data" });
       }
 
+      console.log(
+        `[INFO] addappiumdata form parsed: fields=${JSON.stringify(Object.keys(fields))} files=${JSON.stringify(Object.keys(files))}`
+      );
+
       const file = getUploadedFile(files);
       if (!file) {
+        console.error(
+          `[ERROR] addappiumdata uploaded file not found (expected field name: file). Received file fields: ${JSON.stringify(
+            Object.keys(files)
+          )}`
+        );
         return res.status(400).json({ error: "File not found in form-data (field name: file)" });
       }
+
+      console.log(
+        `[INFO] addappiumdata file received: originalFilename="${file.originalFilename || ""}" mimetype="${file.mimetype || ""}" size=${file.size} filepath="${file.filepath}"`
+      );
 
       const mainFromFields = asSingleQueryValue((fields as any).mainproduct);
       const subFromFields = asSingleQueryValue((fields as any).subproduct);
@@ -855,7 +873,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const mainProductValue = mainFromFields || mainFromQuery || "UNKNOWN";
       const subProductValue = subFromFields || subFromQuery || "UNKNOWN";
 
+      console.log(
+        `[INFO] addappiumdata resolved products: mainproduct="${mainProductValue}" (fields="${mainFromFields || ""}" query="${mainFromQuery || ""}") subproduct="${subProductValue}" (fields="${subFromFields || ""}" query="${subFromQuery || ""}")`
+      );
+
       if (mainProductValue === "UNKNOWN" || subProductValue === "UNKNOWN") {
+        console.error(
+          `[ERROR] addappiumdata invalid/missing product: mainproduct="${mainProductValue}" subproduct="${subProductValue}"`
+        );
         return res.status(400).json({
           error: "Invalid or missing mainproduct or subproduct",
           hint: "Send mainproduct/subproduct as form-data fields (recommended) or as query params.",
@@ -864,6 +889,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       try {
         const isRobot = await detectRobotFrameworkXml(file.filepath);
+        console.log(
+          `[INFO] addappiumdata parsing file="${file.originalFilename || ""}" detected format=${isRobot ? "RobotFramework" : "AppiumJUnit"}`
+        );
         const parsed = isRobot
           ? await parseRobotFrameworkOutputFileFast(file.filepath)
           : await parseAppiumJUnitXml(await fs.readFile(file.filepath, "utf-8"));
@@ -871,6 +899,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const nowdate = getThailandDateString();
         const nowtime = getThailandTimeString();
         const dbNametest = buildDbNametest(parsed, file.originalFilename || "uploaded.xml");
+        console.log(
+          `[INFO] addappiumdata saving to DB: mainproduct="${mainProductValue}" subproduct="${subProductValue}" nametest="${dbNametest}" date="${nowdate}" time="${nowtime}"`
+        );
         await saveToDb({
           mainproduct: mainProductValue,
           subproduct: subProductValue,
@@ -879,10 +910,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           nowtime,
         });
 
+        console.log(
+          `[INFO] addappiumdata saved successfully: subproduct="${subProductValue}" nametest="${dbNametest}"`
+        );
         return res.status(200).json({
           message: "Data saved successfully in product " + subProductValue,
         });
-      } catch {
+      } catch (error) {
+        console.error(
+          `[ERROR] addappiumdata failed to parse/save XML: file="${file.originalFilename || ""}" mainproduct="${mainProductValue}" subproduct="${subProductValue}"`,
+          error
+        );
         return res.status(500).json({ error: "Error parsing XML" });
       }
     });
