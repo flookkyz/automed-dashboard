@@ -844,6 +844,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       maxTotalFileSize: MAX_UPLOAD_BYTES,
     });
 
+    const tStart = Date.now();
     console.log(
       `[INFO] addappiumdata POST received: content-type="${req.headers["content-type"] || ""}" content-length="${req.headers["content-length"] || ""}"`
     );
@@ -867,8 +868,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(400).json({ error: "Error parsing form-data" });
       }
 
+      const tFormParsed = Date.now();
       console.log(
-        `[INFO] addappiumdata form parsed: fields=${JSON.stringify(Object.keys(fields))} files=${JSON.stringify(Object.keys(files))}`
+        `[INFO] addappiumdata form parsed in ${tFormParsed - tStart}ms (upload + temp-file write): fields=${JSON.stringify(Object.keys(fields))} files=${JSON.stringify(Object.keys(files))}`
       );
 
       const file = getUploadedFile(files);
@@ -907,6 +909,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       try {
+        const tParseStart = Date.now();
         const isRobot = await detectRobotFrameworkXml(file.filepath);
         console.log(
           `[INFO] addappiumdata parsing file="${file.originalFilename || ""}" detected format=${isRobot ? "RobotFramework" : "AppiumJUnit"}`
@@ -914,6 +917,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const parsed = isRobot
           ? await parseRobotFrameworkOutputFileFast(file.filepath)
           : await parseAppiumJUnitXml(await fs.readFile(file.filepath, "utf-8"));
+
+        const tParseEnd = Date.now();
+        console.log(
+          `[INFO] addappiumdata parsed in ${tParseEnd - tParseStart}ms: totalTests=${parsed.totalTests} pass=${parsed.pass} fail=${parsed.fail} skipped=${parsed.skipped}`
+        );
 
         const nowdate = getThailandDateString();
         const nowtime = getThailandTimeString();
@@ -929,8 +937,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           nowtime,
         });
 
+        const tSaveEnd = Date.now();
         console.log(
-          `[INFO] addappiumdata saved successfully: subproduct="${subProductValue}" nametest="${dbNametest}"`
+          `[INFO] addappiumdata saved successfully in ${tSaveEnd - tParseEnd}ms (db) — total request ${tSaveEnd - tStart}ms: subproduct="${subProductValue}" nametest="${dbNametest}"`
         );
         return res.status(200).json({
           message: "Data saved successfully in product " + subProductValue,
