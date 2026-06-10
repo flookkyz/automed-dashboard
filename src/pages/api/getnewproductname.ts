@@ -52,17 +52,22 @@ export default async function handler(
             )
             .toArray();
 
-        // Determine which collections we actually need to check flags for.
-        // Using product_name avoids a full listCollections scan on every request.
-        const subproductNames = Array.from(
-            new Set(
-                products
-                    .flatMap((p: any) => (Array.isArray(p.subProduct) ? p.subProduct : []))
-                    .filter((n: any) => typeof n === "string" && n.length > 0),
-            ),
-        ) as string[];
+        // A subproduct collection (e.g. "order") can be shared by multiple main
+        // products, with documents distinguished only by the `mainproduct` field.
+        // Compute the flag per (mainProduct, subProduct) pair and query with that
+        // filter so the dot matches what the dashboard shows for the same product.
+        const flagKey = (mainProduct: string, subName: string) =>
+            `${mainProduct}::${subName}`;
 
-        const flagsByCollection: Record<string, "pass" | "fail" | "error" | "all"> = {};
+        const productSubPairs = products.flatMap((p: any) => {
+            const main = typeof p.mainProduct === "string" ? p.mainProduct : "";
+            const subs = Array.isArray(p.subProduct) ? p.subProduct : [];
+            return subs
+                .filter((n: any) => typeof n === "string" && n.length > 0)
+                .map((subName: string) => ({ main, subName }));
+        }) as Array<{ main: string; subName: string }>;
+
+        const flagsByPair: Record<string, "pass" | "fail" | "error" | "all"> = {};
 
         async function mapWithConcurrency<T>(
             items: T[],
@@ -79,10 +84,11 @@ export default async function handler(
             await Promise.all(workers);
         }
 
-        await mapWithConcurrency(subproductNames, 10, async (col) => {
+        await mapWithConcurrency(productSubPairs, 10, async ({ main, subName }) => {
+            const key = flagKey(main, subName);
             try {
-                const latest = await db.collection(col).findOne(
-                    {},
+                const latest = await db.collection(subName).findOne(
+                    { mainproduct: main },
                     {
                         sort: { date: -1 },
                         projection: {
@@ -93,7 +99,7 @@ export default async function handler(
                     },
                 );
                 if (!latest || !Array.isArray((latest as any).nametest)) {
-                    flagsByCollection[col] = "pass";
+                    flagsByPair[key] = "pass";
                     return;
                 }
 
@@ -110,10 +116,10 @@ export default async function handler(
                 else if (hasFail) flag = "fail";
                 else if (hasError) flag = "error";
 
-                flagsByCollection[col] = flag;
+                flagsByPair[key] = flag;
             } catch {
                 // ignore collection read errors and leave flag as pass
-                flagsByCollection[col] = "pass";
+                flagsByPair[key] = "pass";
             }
         });
 
@@ -130,7 +136,7 @@ export default async function handler(
             const subs = Array.isArray(p.subProduct)
                 ? p.subProduct.map((name: string) => ({
                       name,
-                      flag: flagsByCollection[name] ?? "pass",
+                      flag: flagsByPair[flagKey(p.mainProduct, name)] ?? "pass",
                   }))
                 : [];
             return {
