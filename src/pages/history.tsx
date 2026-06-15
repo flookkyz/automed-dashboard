@@ -364,7 +364,7 @@ export default function HistorySchedulePage() {
         <div className="hs-stats">
           <span className="stat">สรุปผลล่าสุด ({totalRows} โปรเจค):</span>
           <span className="stat pass">
-            <span className="dot green" /> ผ่าน {stats.green}
+            <span className="dot green" /> pass {stats.green}
           </span>
           <span className="stat error">
             <span className="dot yellow" /> error {stats.yellow}
