@@ -374,7 +374,8 @@ export default function HistorySchedulePage() {
           </span>
           <span className="stat divider">|</span>
           <span className="stat nodata">
-            ไม่มีผลเทสในรอบ 1 สัปดาห์: <b>{stats.noTestWeek}</b> โปรเจค
+            <span className="qmark" title="Out of date (1 week)">?</span>
+            Out of date (1 week): <b>{stats.noTestWeek}</b> โปรเจค
           </span>
         </div>
 
@@ -504,7 +505,7 @@ export default function HistorySchedulePage() {
                           {stale && (
                             <span
                               className="latest-stale"
-                              title="ไม่มีผลเทสในรอบ 1 สัปดาห์"
+                              title="Out of date (1 week)"
                             >
                               ?
                             </span>
@@ -682,6 +683,19 @@ export default function HistorySchedulePage() {
         .hs-stats .stat.nodata b {
           color: #ffd27a;
           font-size: 14px;
+        }
+        .hs-stats .qmark {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #ffd27a;
+          color: #4a3500;
+          font-size: 11px;
+          font-weight: 700;
+          cursor: help;
         }
         .hs-error {
           margin: 12px 20px;
