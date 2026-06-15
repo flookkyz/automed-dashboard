@@ -1,5 +1,5 @@
 # Build stage
-FROM node:lts-alpine AS builder
+FROM node:20-alpine AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ COPY . .
 
 RUN npm run build
 
-FROM node:lts-alpine AS runner
+FROM node:20-alpine AS runner
 
 WORKDIR /app
 
