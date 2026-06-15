@@ -122,6 +122,19 @@ function NewNavbarpage() {
             onChange={handleFilter}
           />
         </div>
+        <div className="px-4 pt-3">
+          <button
+            type="button"
+            onClick={() => router.push("/history")}
+            className={`w-full text-left rounded px-3 py-2 text-sm transition-colors ${
+              router.pathname === "/history"
+                ? "bg-gray-600 text-white"
+                : "text-gray-200 hover:bg-gray-700"
+            }`}
+          >
+            📅 History Schedule
+          </button>
+        </div>
         <div className="py-4 px-1">
           {/* Replace mock data with API-driven products from /api/getnewproductname */}
           {loading ? (
