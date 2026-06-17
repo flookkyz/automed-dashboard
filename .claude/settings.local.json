@@ -9,7 +9,8 @@
       "Bash(node -e \"const h=require\\('htmlparser2'\\); const p=new h.Parser\\({oncdatastart\\(\\){console.log\\('CDATA-start'\\)},ontext\\(t\\){console.log\\('text',JSON.stringify\\(t\\)\\)},oncdataend\\(\\){console.log\\('CDATA-end'\\)}},{xmlMode:true,decodeEntities:true}\\); p.write\\('<msg level=\\\\\"FAIL\\\\\"><![CDATA[hello <world> & stuff]]></msg>'\\); p.end\\(\\);\")",
       "Bash(docker --version)",
       "Bash(docker info *)",
-      "Bash(DOCKER_API_VERSION=1.41 docker info --format '{{.ServerVersion}}')"
+      "Bash(DOCKER_API_VERSION=1.41 docker info --format '{{.ServerVersion}}')",
+      "Bash(npx tsc *)"
     ]
   }
 }

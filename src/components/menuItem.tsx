@@ -1,4 +1,5 @@
 import React, { memo, useState, useEffect } from "react";
+import sqLogo from "../img/sq_logo.png";
 
 type Flag = "all" | "fail" | "error" | "pass" | undefined;
 
@@ -8,9 +9,11 @@ interface MenuItemProps {
   /** Name of a single child item (renders as indented item) */
   subproduct?: string;
   /** Optional array of child names or child objects for expandable menus */
-  subproducts?: Array<string | { name: string; flag?: Flag }>;
+  subproducts?: Array<string | { name: string; flag?: Flag; hasSonar?: boolean }>;
   /** flag to show small status indicators: 'all'|'fail'|'error' */
   flag?: Flag;
+  /** show a SonarQube icon next to the label when this product has Sonar data */
+  hasSonar?: boolean;
   onClick?: () => void;
   /** Called when an item (main or sub) is selected. Receives (mainProduct, subProduct?) */
   onSelect?: (main?: string, sub?: string) => void;
@@ -34,6 +37,7 @@ const MenuItem = memo((props: MenuItemProps) => {
     subproduct,
     subproducts,
     flag,
+    hasSonar,
     onClick,
     className,
     onSelect,
@@ -111,9 +115,9 @@ const MenuItem = memo((props: MenuItemProps) => {
           role="button"
         >
           {/* Left: label */}
-          <div className={`flex-1`}>
+          <div className={`flex-1 min-w-0`}>
             <span
-              className={`${
+              className={`block truncate ${
                 isSub
                   ? "text-base text-gray-200"
                   : "text-lg font-medium text-white"
@@ -123,9 +127,20 @@ const MenuItem = memo((props: MenuItemProps) => {
             </span>
           </div>
 
-          {/* Middle: flags */}
+          {/* SonarQube icon: fixed slot before the status dots so it aligns
+              in a column regardless of the label length */}
+          {hasSonar && (
+            <img
+              src={sqLogo.src}
+              alt="SonarQube"
+              title="SonarQube data available"
+              className="h-4 w-4 shrink-0 mr-2"
+            />
+          )}
+
+          {/* Middle: flags (single dot — error takes priority over fail) */}
           <div className="flex items-center space-x-2 mr-2" aria-hidden="true">
-            {(flag === "fail" || flag === "all") && (
+            {flag === "fail" && (
               <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-red-500" />
             )}
             {(flag === "error" || flag === "all") && (
@@ -196,6 +211,7 @@ const MenuItem = memo((props: MenuItemProps) => {
                   mainproduct={mainproduct}
                   subproduct={child.name}
                   flag={child.flag}
+                  hasSonar={child.hasSonar}
                   className="pl-6"
                   onSelect={onSelect}
                   active={childActive}

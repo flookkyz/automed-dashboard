@@ -67,7 +67,8 @@ export default async function handler(
                 .map((subName: string) => ({ main, subName }));
         }) as Array<{ main: string; subName: string }>;
 
-        const flagsByPair: Record<string, "pass" | "fail" | "error" | "all"> = {};
+        const flagsByPair: Record<string, "pass" | "fail" | "error"> = {};
+        const sonarByPair: Record<string, boolean> = {};
 
         async function mapWithConcurrency<T>(
             items: T[],
@@ -87,6 +88,14 @@ export default async function handler(
         await mapWithConcurrency(productSubPairs, 10, async ({ main, subName }) => {
             const key = flagKey(main, subName);
             try {
+                // Does this product have any SonarQube data? (may live in a different
+                // dated document than the latest test results, so query separately.)
+                const sonarDoc = await db.collection(subName).findOne(
+                    { mainproduct: main, "sonar.projectKey": { $exists: true } },
+                    { projection: { _id: 1 } },
+                );
+                sonarByPair[key] = Boolean(sonarDoc);
+
                 const latest = await db.collection(subName).findOne(
                     { mainproduct: main },
                     {
@@ -98,8 +107,12 @@ export default async function handler(
                         },
                     },
                 );
-                if (!latest || !Array.isArray((latest as any).nametest)) {
-                    flagsByPair[key] = "pass";
+                if (
+                    !latest ||
+                    !Array.isArray((latest as any).nametest) ||
+                    (latest as any).nametest.length === 0
+                ) {
+                    // No test data -> no status dot (leave flag unset).
                     return;
                 }
 
@@ -111,15 +124,14 @@ export default async function handler(
                     if (hasFail && hasError) break;
                 }
 
-                let flag: "pass" | "fail" | "error" | "all" = "pass";
-                if (hasFail && hasError) flag = "all";
+                // Show a single dot: error takes priority over fail.
+                let flag: "pass" | "fail" | "error" = "pass";
+                if (hasError) flag = "error";
                 else if (hasFail) flag = "fail";
-                else if (hasError) flag = "error";
 
                 flagsByPair[key] = flag;
             } catch {
-                // ignore collection read errors and leave flag as pass
-                flagsByPair[key] = "pass";
+                // ignore collection read errors and leave flag unset (no dot)
             }
         });
 
@@ -136,7 +148,8 @@ export default async function handler(
             const subs = Array.isArray(p.subProduct)
                 ? p.subProduct.map((name: string) => ({
                       name,
-                      flag: flagsByPair[flagKey(p.mainProduct, name)] ?? "pass",
+                      flag: flagsByPair[flagKey(p.mainProduct, name)] ?? null,
+                      hasSonar: sonarByPair[flagKey(p.mainProduct, name)] ?? false,
                   }))
                 : [];
             return {

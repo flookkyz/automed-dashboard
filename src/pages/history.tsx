@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
+import sqLogo from "../img/sq_logo.png";
 
 // History Schedule grid: shows daily test results for every product / subproduct
 // across a date range as a calendar-like grid of colored dots.
@@ -9,7 +10,7 @@ import { useRouter } from "next/router";
 //   - GET /api/getsummary?date=YYYY-MM-DD    -> cells (per-day results, one call per day)
 
 type Flag = "all" | "fail" | "error" | "pass" | undefined;
-type SubProduct = { name: string; flag?: Flag };
+type SubProduct = { name: string; flag?: Flag; hasSonar?: boolean };
 type Product = { mainProduct: string; subProduct?: SubProduct[] };
 
 type NameTest = {
@@ -482,7 +483,19 @@ export default function HistorySchedulePage() {
                         {p.mainProduct}
                       </th>
                     )}
-                    <th className="sp" title={sub.name}>{sub.name}</th>
+                    <th className="sp" title={sub.name}>
+                      <div className="sp-inner">
+                        <span className="sp-name">{sub.name}</span>
+                        {sub.hasSonar && (
+                          <img
+                            src={sqLogo.src}
+                            alt="SonarQube"
+                            title="SonarQube data available"
+                            className="sp-sonar"
+                          />
+                        )}
+                      </div>
+                    </th>
                     {(() => {
                       const lDoc = resolveDoc(latest, p.mainProduct, sub.name);
                       const lCell = computeCell(lDoc);
@@ -762,7 +775,24 @@ export default function HistorySchedulePage() {
           width: 190px;
           max-width: 190px;
           overflow: hidden;
+        }
+        th.sp :global(.sp-inner) {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+        }
+        th.sp :global(.sp-name) {
+          overflow: hidden;
           text-overflow: ellipsis;
+          white-space: nowrap;
+          min-width: 0;
+        }
+        th.sp :global(.sp-sonar) {
+          width: 14px;
+          height: 14px;
+          flex-shrink: 0;
+          margin-left: auto;
         }
         th.latest {
           position: sticky;

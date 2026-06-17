@@ -6,7 +6,7 @@ import LoadingState from "./LoadingState";
 
 type Flag = "all" | "fail" | "error" | "pass" | undefined;
 
-type SubProduct = string | { name: string; flag?: Flag };
+type SubProduct = string | { name: string; flag?: Flag; hasSonar?: boolean };
 
 type Product = {
   mainProduct: string;
@@ -90,15 +90,13 @@ function NewNavbarpage() {
       typeof c === "string" ? undefined : c.flag
     );
 
-    if (childFlags.includes("all")) return "all";
-
+    // Single dot: error takes priority over fail ("all" treated as error).
+    const hasError = childFlags.includes("error") || childFlags.includes("all");
     const hasFail = childFlags.includes("fail");
-    const hasError = childFlags.includes("error");
     const hasPass = childFlags.includes("pass");
 
-    if (hasFail && hasError) return "all";
-    if (hasFail) return "fail";
     if (hasError) return "error";
+    if (hasFail) return "fail";
     if (hasPass) return "pass";
     return undefined;
   }, []);
