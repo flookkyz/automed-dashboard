@@ -493,14 +493,6 @@ export default function HistorySchedulePage() {
                     <th className="sp" title={sub.name}>
                       <div className="sp-inner">
                         <span className="sp-name">{sub.name}</span>
-                        {sub.hasSonar && (
-                          <img
-                            src={sqLogo.src}
-                            alt="SonarQube"
-                            title="SonarQube data available"
-                            className="sp-sonar"
-                          />
-                        )}
                       </div>
                     </th>
                     {(() => {
@@ -514,11 +506,21 @@ export default function HistorySchedulePage() {
                       } (+07:00)`;
                       return (
                         <th className="sonarlatest" title={title}>
-                          <span className="sonar-date">
-                            {String(sd.getDate()).padStart(2, "0")}/
-                            {String(sd.getMonth() + 1).padStart(2, "0")}/
-                            {sd.getFullYear()}
-                          </span>
+                          <div className="sonar-inner">
+                            {sub.hasSonar && (
+                              <img
+                                src={sqLogo.src}
+                                alt="SonarQube"
+                                title="SonarQube data available"
+                                className="sonar-icon"
+                              />
+                            )}
+                            <span className="sonar-date">
+                              {String(sd.getDate()).padStart(2, "0")}/
+                              {String(sd.getMonth() + 1).padStart(2, "0")}/
+                              {sd.getFullYear()}
+                            </span>
+                          </div>
                         </th>
                       );
                     })()}
@@ -824,11 +826,16 @@ export default function HistorySchedulePage() {
           white-space: nowrap;
           min-width: 0;
         }
-        th.sp :global(.sp-sonar) {
+        th.sonarlatest :global(.sonar-inner) {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+        }
+        th.sonarlatest :global(.sonar-icon) {
           width: 14px;
           height: 14px;
           flex-shrink: 0;
-          margin-left: auto;
         }
         th.sonarlatest {
           position: sticky;
