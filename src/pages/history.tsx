@@ -10,7 +10,13 @@ import sqLogo from "../img/sq_logo.png";
 //   - GET /api/getsummary?date=YYYY-MM-DD    -> cells (per-day results, one call per day)
 
 type Flag = "all" | "fail" | "error" | "pass" | undefined;
-type SubProduct = { name: string; flag?: Flag; hasSonar?: boolean };
+type SonarScannedAt = { date?: string; time?: string } | null;
+type SubProduct = {
+  name: string;
+  flag?: Flag;
+  hasSonar?: boolean;
+  sonarScannedAt?: SonarScannedAt;
+};
 type Product = { mainProduct: string; subProduct?: SubProduct[] };
 
 type NameTest = {
@@ -445,6 +451,7 @@ export default function HistorySchedulePage() {
               <tr>
                 <th className="corner1">Product</th>
                 <th className="corner2">Subproject</th>
+                <th className="corner-sonar">Sonar Q Latest</th>
                 <th className="corner3">Latest</th>
                 {displayDates.map((d) => {
                   const dt = keyToDate(d);
@@ -479,8 +486,8 @@ export default function HistorySchedulePage() {
                     title={`เปิดรายละเอียด ${p.mainProduct} / ${sub.name}`}
                   >
                     {idx === 0 && (
-                      <th className="mp" rowSpan={subs.length}>
-                        {p.mainProduct}
+                      <th className="mp" rowSpan={subs.length} title={p.mainProduct}>
+                        <span className="mp-name">{p.mainProduct}</span>
                       </th>
                     )}
                     <th className="sp" title={sub.name}>
@@ -496,6 +503,25 @@ export default function HistorySchedulePage() {
                         )}
                       </div>
                     </th>
+                    {(() => {
+                      const sc = sub.sonarScannedAt;
+                      if (!sc || !sc.date) {
+                        return <th className="sonarlatest empty">&mdash;</th>;
+                      }
+                      const sd = keyToDate(sc.date);
+                      const title = `Scanned at ${sc.date}${
+                        sc.time ? ` ${sc.time}` : ""
+                      } (+07:00)`;
+                      return (
+                        <th className="sonarlatest" title={title}>
+                          <span className="sonar-date">
+                            {String(sd.getDate()).padStart(2, "0")}/
+                            {String(sd.getMonth() + 1).padStart(2, "0")}/
+                            {sd.getFullYear()}
+                          </span>
+                        </th>
+                      );
+                    })()}
                     {(() => {
                       const lDoc = resolveDoc(latest, p.mainProduct, sub.name);
                       const lCell = computeCell(lDoc);
@@ -761,10 +787,20 @@ export default function HistorySchedulePage() {
           font-weight: 700;
           color: #cfe;
           border-right: 2px solid #3a4656;
+          width: 150px;
+          min-width: 150px;
+          max-width: 150px;
+          overflow: hidden;
+        }
+        th.mp :global(.mp-name) {
+          display: block;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         th.sp {
           position: sticky;
-          left: 120px;
+          left: 150px;
           z-index: 15;
           background: #27313e;
           padding: 5px 10px;
@@ -794,9 +830,30 @@ export default function HistorySchedulePage() {
           flex-shrink: 0;
           margin-left: auto;
         }
+        th.sonarlatest {
+          position: sticky;
+          left: 340px;
+          z-index: 15;
+          background: #232d3a;
+          padding: 5px 10px;
+          text-align: left;
+          font-weight: 500;
+          color: #dfe3e8;
+          border-right: 2px solid #3a4656;
+          width: 130px;
+          min-width: 130px;
+        }
+        th.sonarlatest :global(.sonar-date) {
+          font-size: 12px;
+          color: #cdd4dd;
+        }
+        th.sonarlatest.empty {
+          color: #5b6573;
+          font-weight: 400;
+        }
         th.latest {
           position: sticky;
-          left: 310px;
+          left: 470px;
           z-index: 15;
           background: #232d3a;
           padding: 5px 10px;
@@ -835,20 +892,28 @@ export default function HistorySchedulePage() {
           position: sticky;
           left: 0;
           z-index: 25;
-          width: 120px;
+          width: 150px;
           background: #2a3340;
           text-align: left;
         }
         thead th.corner2 {
           position: sticky;
-          left: 120px;
+          left: 150px;
           z-index: 25;
           background: #2a3340;
           text-align: left;
         }
+        thead th.corner-sonar {
+          position: sticky;
+          left: 340px;
+          z-index: 25;
+          background: #2a3340;
+          text-align: left;
+          border-right: 2px solid #3a4656;
+        }
         thead th.corner3 {
           position: sticky;
-          left: 310px;
+          left: 470px;
           z-index: 25;
           background: #2a3340;
           text-align: left;

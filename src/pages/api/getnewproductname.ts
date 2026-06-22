@@ -69,6 +69,7 @@ export default async function handler(
 
         const flagsByPair: Record<string, "pass" | "fail" | "error"> = {};
         const sonarByPair: Record<string, boolean> = {};
+        const sonarScannedByPair: Record<string, { date: string; time?: string }> = {};
 
         async function mapWithConcurrency<T>(
             items: T[],
@@ -88,13 +89,29 @@ export default async function handler(
         await mapWithConcurrency(productSubPairs, 10, async ({ main, subName }) => {
             const key = flagKey(main, subName);
             try {
-                // Does this product have any SonarQube data? (may live in a different
-                // dated document than the latest test results, so query separately.)
+                // Does this product have any SonarQube data, and when was it last
+                // scanned? (Sonar data may live in a different dated document than
+                // the latest test results, so query it separately.)
                 const sonarDoc = await db.collection(subName).findOne(
                     { mainproduct: main, "sonar.projectKey": { $exists: true } },
-                    { projection: { _id: 1 } },
+                    {
+                        sort: { date: -1, "sonar.fetchedAtTime": -1 },
+                        projection: {
+                            _id: 0,
+                            date: 1,
+                            "sonar.fetchedAtDate": 1,
+                            "sonar.fetchedAtTime": 1,
+                        },
+                    },
                 );
                 sonarByPair[key] = Boolean(sonarDoc);
+                if (sonarDoc) {
+                    const s = (sonarDoc as any).sonar ?? {};
+                    sonarScannedByPair[key] = {
+                        date: s.fetchedAtDate || (sonarDoc as any).date || "",
+                        time: typeof s.fetchedAtTime === "string" ? s.fetchedAtTime : undefined,
+                    };
+                }
 
                 const latest = await db.collection(subName).findOne(
                     { mainproduct: main },
@@ -150,6 +167,7 @@ export default async function handler(
                       name,
                       flag: flagsByPair[flagKey(p.mainProduct, name)] ?? null,
                       hasSonar: sonarByPair[flagKey(p.mainProduct, name)] ?? false,
+                      sonarScannedAt: sonarScannedByPair[flagKey(p.mainProduct, name)] ?? null,
                   }))
                 : [];
             return {
