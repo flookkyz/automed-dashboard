@@ -3,6 +3,7 @@ import SearchInput from "../components/scarchInput";
 import MenuItem from "../components/menuItem";
 import { useRouter } from "next/router";
 import LoadingState from "./LoadingState";
+import { isAdmin, useRole } from "../lib/role";
 
 type Flag = "all" | "fail" | "error" | "pass" | undefined;
 
@@ -15,6 +16,8 @@ type Product = {
 
 function NewNavbarpage() {
   const router = useRouter();
+  // Also seeds `role=user` on a first visit, without touching an existing role.
+  const role = useRole();
   const [scarchInputValue, setScarchInputValue] = useState("");
   const activeMain = typeof router.query.mainproduct === "string" ? router.query.mainproduct : undefined;
   const activeSub = typeof router.query.subproduct === "string" ? router.query.subproduct : undefined;
@@ -132,6 +135,32 @@ function NewNavbarpage() {
           >
             📅 History Schedule
           </button>
+          {isAdmin(role) && (
+            <button
+              type="button"
+              onClick={() => router.push("/add-product")}
+              className={`w-full text-left rounded px-3 py-2 mt-2 text-sm transition-colors ${
+                router.pathname === "/add-product"
+                  ? "bg-gray-600 text-white"
+                  : "text-gray-200 hover:bg-gray-700"
+              }`}
+            >
+              ➕ เพิ่ม Product
+            </button>
+          )}
+          {isAdmin(role) && (
+            <button
+              type="button"
+              onClick={() => router.push("/delete-product")}
+              className={`w-full text-left rounded px-3 py-2 mt-2 text-sm transition-colors ${
+                router.pathname === "/delete-product"
+                  ? "bg-gray-600 text-white"
+                  : "text-gray-200 hover:bg-gray-700"
+              }`}
+            >
+              🗑️ ลบ Product
+            </button>
+          )}
         </div>
         <div className="py-4 px-1">
           {/* Replace mock data with API-driven products from /api/getnewproductname */}

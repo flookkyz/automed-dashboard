@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Dashboard from "../../components/Dashboard";
+import ComingSoon from "../../components/ComingSoon";
 
 type SonarDoc = {
   mainproduct?: string;
@@ -271,9 +272,13 @@ function SonarQubePanel({ mainproduct, subproduct }: { mainproduct: string; subp
             <div className="text-gray-300">Loading SonarQube results...</div>
           ) : error ? (
             <div className="text-red-300">Error: {error}</div>
-          ) : !doc ? (
-            <div className="text-gray-300">No SonarQube data found for this subproduct.</div>
           ) : (
+            <ComingSoon
+              show={!doc}
+              align="center"
+              label="SonarQube data is coming soon"
+              detail="ยังไม่มีผลสแกนของ subproduct นี้"
+            >
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
               <MetricCard title="New issues" value={metrics.issues} sub={isNew ? "Required = 0" : undefined} />
               <MetricCard title="Accepted issues" value={metrics.accepted} sub="Valid issues that were not fixed" />
@@ -288,6 +293,7 @@ function SonarQubePanel({ mainproduct, subproduct }: { mainproduct: string; subp
                 </>
               )}
             </div>
+            </ComingSoon>
           )}
         </div>
       </div>

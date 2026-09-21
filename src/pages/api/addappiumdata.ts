@@ -269,7 +269,9 @@ async function saveToDb(params: {
   // Merge nametest without reading the full document (faster for large detail arrays).
   for (const newTest of nametest) {
     const updateExisting = await collection.updateOne(
-      { date: nowdate, "nametest.name": newTest.name },
+      // Keyed by (date, mainproduct): a subproduct collection can be shared
+      // by several main products.
+      { date: nowdate, mainproduct: String(mainproduct), "nametest.name": newTest.name },
       {
         $set: {
           mainproduct: String(mainproduct),
@@ -281,7 +283,7 @@ async function saveToDb(params: {
 
     if (updateExisting.matchedCount === 0) {
       await collection.updateOne(
-        { date: nowdate },
+        { date: nowdate, mainproduct: String(mainproduct) },
         {
           $set: {
             mainproduct: String(mainproduct),

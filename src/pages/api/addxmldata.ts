@@ -179,9 +179,11 @@ export default async function handler(
         });
       }
 
+      // Keyed by (date, mainproduct): a subproduct collection can be shared
+      // by several main products.
       const existingDoc = await db
         .collection(String(reqsubproduct))
-        .findOne({ date: nowdate });
+        .findOne({ date: nowdate, mainproduct: String(reqmainproduct) });
 
       if (existingDoc) {
         const existingTests = (existingDoc as any).nametest || [];
@@ -204,7 +206,7 @@ export default async function handler(
       const dataWithoutMainproduct = { mainproduct, nametest, time };
 
       await db.collection(subproduct).updateOne(
-        { date: nowdate },
+        { date: nowdate, mainproduct },
         { $set: dataWithoutMainproduct },
         { upsert: true }
       );

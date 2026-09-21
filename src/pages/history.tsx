@@ -34,8 +34,41 @@ type SummaryDoc = {
   nametest?: NameTest[];
 } | null;
 
-// summaries[date][collectionName] = SummaryDoc
+// summaries[date]["<mainProduct>::<subProduct>"] = SummaryDoc
 type SummaryByDate = Record<string, Record<string, SummaryDoc>>;
+
+/** Case-insensitive lookup key, used only as a fallback (see buildCiIndex). */
+function ciKey(mainProduct: string, subName: string): string {
+  return `${mainProduct.trim().toLowerCase()}::${subName.trim().toLowerCase()}`;
+}
+
+/**
+ * Index the API's case-sensitive keys by their lowercase form, so a row still
+ * finds its document when the stored `mainproduct` differs only by case or
+ * whitespace. Keys that collapse onto the same lowercase form are genuinely
+ * ambiguous (two near-twin main products), so they resolve to nothing rather
+ * than to the wrong product.
+ */
+function buildCiIndex(
+  map: Record<string, SummaryDoc> | undefined
+): Map<string, SummaryDoc> {
+  const index = new Map<string, SummaryDoc>();
+  const ambiguous = new Set<string>();
+
+  for (const [key, doc] of Object.entries(map ?? {})) {
+    const separator = key.indexOf("::");
+    if (separator === -1) continue;
+    const lower = ciKey(key.slice(0, separator), key.slice(separator + 2));
+    if (index.has(lower)) {
+      ambiguous.add(lower);
+      continue;
+    }
+    index.set(lower, doc);
+  }
+
+  for (const key of ambiguous) index.delete(key);
+  return index;
+}
 
 type CellStatus = "green" | "yellow" | "red" | "empty";
 type Cell = {
@@ -172,19 +205,6 @@ export default function HistorySchedulePage() {
   // Calendar columns are shown oldest-first (most recent date on the right).
   const displayDates = dates;
 
-  // How many main products reference each subproduct collection. Used to safely
-  // fall back to collection-level data when a collection maps 1:1 to a product
-  // (handles case/whitespace mismatch in the stored `mainproduct` field).
-  const subUsage = useMemo(() => {
-    const m = new Map<string, number>();
-    for (const p of products) {
-      for (const s of p.subProduct || []) {
-        m.set(s.name, (m.get(s.name) || 0) + 1);
-      }
-    }
-    return m;
-  }, [products]);
-
   // Load product structure + latest-result data. Served from cache on revisit;
   // re-fetched when the Refresh button bumps reloadToken.
   useEffect(() => {
@@ -280,28 +300,32 @@ export default function HistorySchedulePage() {
     setReloadToken((t) => t + 1);
   };
 
-  // Resolve a collection's document for a given main product from a
-  // collection-keyed map (used for both the per-day grid and the latest column).
-  function resolveDoc(
+  // Both maps are keyed by "<mainProduct>::<subProduct>", so each row reads its
+  // own product's document even when several products share one collection.
+  const latestCi = useMemo(() => buildCiIndex(latest), [latest]);
+  const summariesCi = useMemo(() => {
+    const out: Record<string, Map<string, SummaryDoc>> = {};
+    for (const [date, map] of Object.entries(summaries)) out[date] = buildCiIndex(map);
+    return out;
+  }, [summaries]);
+
+  function lookup(
     map: Record<string, SummaryDoc> | undefined,
+    ci: Map<string, SummaryDoc> | undefined,
     mainProduct: string,
     subName: string
   ): SummaryDoc {
     if (!map) return null;
-    const doc = map[subName];
-    if (!doc) return null;
-    const docMain = (doc.mainproduct || "").trim().toLowerCase();
-    const rowMain = mainProduct.trim().toLowerCase();
-    if (docMain === rowMain) return doc;
-    // Collection used by a single product -> safe to use even if the stored
-    // mainproduct label differs slightly. Shared collections require an exact
-    // match, so return null to avoid showing another product's result.
-    if ((subUsage.get(subName) || 0) <= 1) return doc;
-    return null;
+    const exact = map[`${mainProduct}::${subName}`];
+    if (exact) return exact;
+    return ci?.get(ciKey(mainProduct, subName)) ?? null;
   }
 
   const getDoc = (mainProduct: string, subName: string, date: string) =>
-    resolveDoc(summaries[date], mainProduct, subName);
+    lookup(summaries[date], summariesCi[date], mainProduct, subName);
+
+  const getLatest = (mainProduct: string, subName: string) =>
+    lookup(latest, latestCi, mainProduct, subName);
 
   // EMT team owns projects whose main product starts with "Z_"; SDP owns the rest.
   const isEMT = (mainProduct: string) =>
@@ -329,7 +353,7 @@ export default function HistorySchedulePage() {
     let noTestWeek = 0;
     for (const p of visibleProducts) {
       for (const s of p.subProduct || []) {
-        const doc = resolveDoc(latest, p.mainProduct, s.name);
+        const doc = getLatest(p.mainProduct, s.name);
         const cell = computeCell(doc);
         if (doc && doc.date && cell.status !== "empty") {
           if (cell.status === "red") red += 1;
@@ -343,7 +367,7 @@ export default function HistorySchedulePage() {
     }
     return { green, yellow, red, noTestWeek };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visibleProducts, latest, weekAgo, subUsage]);
+  }, [visibleProducts, latest, latestCi, weekAgo]);
 
   return (
     <div className="hs-page">
@@ -525,7 +549,7 @@ export default function HistorySchedulePage() {
                       );
                     })()}
                     {(() => {
-                      const lDoc = resolveDoc(latest, p.mainProduct, sub.name);
+                      const lDoc = getLatest(p.mainProduct, sub.name);
                       const lCell = computeCell(lDoc);
                       if (lCell.status === "empty" || !lDoc?.date) {
                         return <th className="latest empty">&mdash;</th>;

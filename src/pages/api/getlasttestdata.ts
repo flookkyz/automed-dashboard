@@ -79,16 +79,49 @@ export default async function handler(
             await Promise.all(workers);
         }
 
+        // A subproduct collection can be shared by several main products, so take
+        // the latest document *per main product* and key it by "<main>::<sub>".
         await mapWithConcurrency(collectionNames, 10, async (collectionName) => {
             try {
-                const latestData = await db.collection(collectionName).findOne(
-                    {},
-                    {
-                        sort: { date: -1 },
-                        projection: { _id: 0 },
-                    },
-                );
-                if (latestData) result[collectionName] = latestData;
+                const latestPerMain = await db
+                    .collection(collectionName)
+                    .aggregate([
+                        {
+                            $project: {
+                                _id: 0,
+                                date: 1,
+                                time: 1,
+                                mainproduct: 1,
+                                nametest: {
+                                    name: 1,
+                                    pass: 1,
+                                    fail: 1,
+                                    error: 1,
+                                    time: 1,
+                                },
+                            },
+                        },
+                        { $sort: { date: -1 } },
+                        {
+                            $group: {
+                                _id: "$mainproduct",
+                                date: { $first: "$date" },
+                                time: { $first: "$time" },
+                                mainproduct: { $first: "$mainproduct" },
+                                nametest: { $first: "$nametest" },
+                            },
+                        },
+                    ])
+                    .toArray();
+
+                for (const doc of latestPerMain) {
+                    const main = typeof doc.mainproduct === "string" ? doc.mainproduct : "";
+                    const { _id, ...rest } = doc as any;
+                    result[`${main}::${collectionName}`] = {
+                        ...rest,
+                        subproduct: collectionName,
+                    };
+                }
             } catch {
                 // ignore per-collection errors
             }

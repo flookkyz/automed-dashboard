@@ -72,11 +72,14 @@ function SummaryDashboard() {
         }
         const data = await response.json();
 
+        // getsummary keys entries by "<mainProduct>::<subProduct>" (one
+        // collection can hold results for several main products), so take the
+        // display name from the entry itself rather than from the key.
         let finaldata: { key: string; value: any }[] = [];
         Object.keys(data).forEach(function (key) {
-          let newdata = { key: key, value: data[key] };
-          if (newdata.value) {
-            finaldata.push(newdata);
+          const value = data[key];
+          if (value) {
+            finaldata.push({ key: value.subproduct ?? key, value });
           }
         });
 

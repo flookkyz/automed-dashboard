@@ -11,6 +11,7 @@ import {
 import { useRouter } from "next/router";
 import SearchInput from "./scarchInput";
 import LoadingState from "./LoadingState";
+import ComingSoon from "./ComingSoon";
 
 ChartJS.register(CategoryScale, LinearScale, ArcElement, Tooltip, Legend);
 
@@ -208,6 +209,15 @@ export default function MainProductDashboard({
           <div className="p-4 text-red-400">Error: {error}</div>
         ) : (
           <>
+            {/* Only the chart half is blurred here: the subproduct table below
+                still carries the registered names, which is the useful part
+                while a product waits for its first run. */}
+            <ComingSoon
+              show={totalAll === 0}
+              align="center"
+              label="Data is coming soon"
+              detail="ยังไม่มีผลเทสต์ของ main product นี้ รอ pipeline ส่งข้อมูลเข้ามา"
+            >
             <p className="mb-2 text-center text-2xl font-bold">
               Test Results Distribution
             </p>
@@ -354,6 +364,7 @@ export default function MainProductDashboard({
                 </div>
               </div>
             </div>
+            </ComingSoon>
 
             <div className="p-4 md:p-8 overflow-x-auto">
               <h2 className="text-xl font-bold justify-start w-full mb-4">

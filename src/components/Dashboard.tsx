@@ -15,6 +15,7 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import SearchInput from "./scarchInput";
 import LoadingState from "./LoadingState";
+import ComingSoon from "./ComingSoon";
 
 ChartJS.register(
   CategoryScale,
@@ -230,6 +231,11 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
     return <LoadingState variant="dashboard" label="Loading dashboard..." />;
   }
 
+  // Nothing to chart. Distinguish "this product has never reported" (registered
+  // ahead of its first run) from "the picked date happens to be empty".
+  const isEmpty = !error && !(product?.nametest?.length > 0);
+  const neverReported = data.length === 0;
+
   return (
     <>
       <div className="p-4">
@@ -283,6 +289,18 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
         {error ? (
           <div className="px-4 py-2 text-red-400">Error: {error}</div>
         ) : null}
+      </div>
+
+      <ComingSoon
+        show={isEmpty}
+        label={neverReported ? "Data is coming soon" : "ไม่มีข้อมูลของวันที่เลือก"}
+        detail={
+          neverReported
+            ? "ยังไม่มีผลเทสต์ของ subproduct นี้ รอ pipeline ส่งข้อมูลเข้ามา"
+            : "ลองเลือกวันอื่นจากปฏิทินด้านบน"
+        }
+      >
+        <div className="px-4 pb-4">
         <p className="mb-2 text-center text-2xl font-bold">
           Test Results Distribution
         </p>
@@ -599,6 +617,7 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
         </table>
         </div>
       </div>
+      </ComingSoon>
       {detailPopup && (
         <div className="fixed top-0 left-0 w-full h-full bg-gray-900 bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-gray-500 w-full max-w-4xl h-5/6 max-h-[90vh] rounded-xl p-4 md:p-8 flex flex-col overflow-hidden">

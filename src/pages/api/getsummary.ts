@@ -94,32 +94,46 @@ export default async function handler(
             await Promise.all(workers);
         }
 
+        // A subproduct collection can hold one document per main product for the
+        // same date, so read them all and key the result by "<main>::<sub>".
+        // Keys stay case-sensitive: two main products whose names differ only by
+        // case are distinct products and must not collapse into one entry.
         await mapWithConcurrency(collectionNames, 10, async (collectionName) => {
             try {
-                const collectionData = await db.collection(collectionName).findOne(
-                    { date },
-                    {
-                        projection: {
-                            _id: 0,
-                            date: 1,
-                            time: 1,
-                            mainproduct: 1,
-                            "nametest.name": 1,
-                            "nametest.pass": 1,
-                            "nametest.fail": 1,
-                            "nametest.error": 1,
-                            "nametest.time": 1,
-                            "sonar.projectKey": 1,
-                            "sonar.hostUrl": 1,
-                            "sonar.fetchedAtDate": 1,
-                            "sonar.fetchedAtTime": 1,
-                            "sonar.summary": 1,
+                const docs = await db
+                    .collection(collectionName)
+                    .find(
+                        { date },
+                        {
+                            projection: {
+                                _id: 0,
+                                date: 1,
+                                time: 1,
+                                mainproduct: 1,
+                                "nametest.name": 1,
+                                "nametest.pass": 1,
+                                "nametest.fail": 1,
+                                "nametest.error": 1,
+                                "nametest.time": 1,
+                                "sonar.projectKey": 1,
+                                "sonar.hostUrl": 1,
+                                "sonar.fetchedAtDate": 1,
+                                "sonar.fetchedAtTime": 1,
+                                "sonar.summary": 1,
+                            },
                         },
-                    },
-                );
-                data[collectionName] = collectionData;
+                    )
+                    .toArray();
+
+                for (const doc of docs) {
+                    const main = typeof doc.mainproduct === "string" ? doc.mainproduct : "";
+                    data[`${main}::${collectionName}`] = {
+                        ...doc,
+                        subproduct: collectionName,
+                    };
+                }
             } catch {
-                data[collectionName] = null;
+                // ignore per-collection errors: the row simply has no cell
             }
         });
 

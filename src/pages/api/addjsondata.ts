@@ -118,9 +118,11 @@ export default async function handler(
       });
     }
 
+    // A subproduct collection can be shared by several main products, so a
+    // document is identified by (date, mainproduct) - never by date alone.
     const existingDoc = await db
       .collection(data.subproduct)
-      .findOne({ date: data.date });
+      .findOne({ date: data.date, mainproduct: data.mainproduct });
 
     if (existingDoc) {
       const existingTests = existingDoc.nametest || [];
@@ -143,7 +145,7 @@ export default async function handler(
     const { subproduct, ...dataWithoutNameproduct } = data;
 
     await db.collection(subproduct).updateOne(
-      { date: data.date },
+      { date: data.date, mainproduct: data.mainproduct },
       { $set: dataWithoutNameproduct },
       { upsert: true }
     );

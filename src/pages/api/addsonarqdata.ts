@@ -117,8 +117,10 @@ export default async function handler(
       raw: body.raw ?? undefined,
     };
 
+    // Keyed by (date, mainproduct): a subproduct collection can be shared by
+    // several main products, and a scan must not land on another one's document.
     await db.collection(body.subproduct).updateOne(
-      { date: nowDate },
+      { date: nowDate, mainproduct: body.mainproduct },
       { $set: { mainproduct: body.mainproduct, sonar: sonarDoc } },
       { upsert: true }
     );
