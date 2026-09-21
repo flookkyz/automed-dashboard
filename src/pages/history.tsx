@@ -6,8 +6,9 @@ import sqLogo from "../img/sq_logo.png";
 // across a date range as a calendar-like grid of colored dots.
 //
 // IMPORTANT: this page only talks to existing API routes (no direct DB access):
-//   - GET /api/getnewproductname            -> rows (mainProduct -> subProduct[])
-//   - GET /api/getsummary?date=YYYY-MM-DD    -> cells (per-day results, one call per day)
+//   - GET /api/getnewproductname        -> rows (mainProduct -> subProduct[])
+//   - GET /api/getsummary?from=&to=     -> cells for the whole range, one call
+//   - GET /api/getlasttestdata          -> the "Latest" column
 
 type Flag = "all" | "fail" | "error" | "pass" | undefined;
 type SonarScannedAt = { date?: string; time?: string } | null;
@@ -260,17 +261,12 @@ export default function HistorySchedulePage() {
     setErrorMsg(null);
     (async () => {
       try {
-        const entries = await Promise.all(
-          dates.map(async (date) => {
-            const res = await fetch(`/api/getsummary?date=${date}`);
-            if (!res.ok) throw new Error(`getsummary ${date}: ${res.status}`);
-            const json = (await res.json()) as Record<string, SummaryDoc>;
-            return [date, json] as const;
-          })
-        );
+        // One request for the whole range: asking per day multiplied the query
+        // count by the number of days for the same amount of data.
+        const res = await fetch(`/api/getsummary?from=${startDate}&to=${endDate}`);
+        if (!res.ok) throw new Error(`getsummary ${startDate}..${endDate}: ${res.status}`);
+        const next = (await res.json()) as SummaryByDate;
         if (cancelled) return;
-        const next: SummaryByDate = {};
-        for (const [date, json] of entries) next[date] = json;
         hsCache.summariesByRange[rangeKey] = next;
         hsCache.fetchedAt = new Date().toLocaleString();
         setSummaries(next);

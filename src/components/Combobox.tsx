@@ -24,6 +24,7 @@ export default function Combobox({
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   const matches = useMemo(() => {
     const query = value.trim().toLowerCase();
@@ -47,6 +48,12 @@ export default function Combobox({
   useEffect(() => {
     setHighlight(0);
   }, [value, open]);
+
+  // Follow the keyboard highlight: the list can be far longer than the box.
+  useEffect(() => {
+    if (!open) return;
+    listRef.current?.children[highlight]?.scrollIntoView({ block: "nearest" });
+  }, [highlight, open]);
 
   const select = (option: string) => {
     onChange(option);
@@ -102,7 +109,10 @@ export default function Combobox({
       </div>
 
       {open && !disabled && (
-        <ul className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded border border-gray-600 bg-[#2b3545] shadow-xl">
+        <ul
+          ref={listRef}
+          className="absolute z-20 mt-1 w-full max-h-60 overflow-y-auto rounded border border-gray-600 bg-[#2b3545] shadow-xl"
+        >
           {matches.length === 0 ? (
             <li className="px-3 py-2 text-gray-400">{emptyText}</li>
           ) : (

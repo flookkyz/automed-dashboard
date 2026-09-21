@@ -1,6 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import clientPromise from "../../lib/mongodb";
 import { invalidateProductCaches } from "../../lib/productCache";
+import {
+    escapeRegex,
+    findSimilar,
+    parseJsonBody,
+    validateNewName,
+} from "../../lib/productNames";
 
 // Register a main product / sub product **name only** (no test data).
 //
@@ -27,38 +33,6 @@ type ResponseData = {
     warnings: Warning[];
 };
 
-// A subProduct name is also used as a MongoDB collection name and as a URL
-// segment (`/{mainproduct}/{subproduct}`), so keep it to safe characters.
-const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
-const RESERVED_NAMES = new Set(["product_name"]);
-
-function validateName(raw: unknown, label: string): { value?: string; error?: string } {
-    if (typeof raw !== "string") return { error: `${label} must be a string` };
-
-    const value = raw.trim();
-    if (!value) return { error: `${label} is required` };
-    if (!NAME_PATTERN.test(value)) {
-        return {
-            error: `${label} "${value}" is invalid: use 1-64 characters, letters/digits/._- only, starting with a letter or digit`,
-        };
-    }
-    if (RESERVED_NAMES.has(value.toLowerCase()) || value.toLowerCase().startsWith("system.")) {
-        return { error: `${label} "${value}" is reserved` };
-    }
-
-    return { value };
-}
-
-function escapeRegex(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/** A name from `list` that matches `value` apart from letter case. */
-function findSimilar(value: string, list: string[]): string | undefined {
-    const lower = value.toLowerCase();
-    return list.find((name) => name !== value && name.toLowerCase() === lower);
-}
-
 export default async function handler(
     req: NextApiRequest,
     res: NextApiResponse<ResponseData | { error: string; details?: string }>,
@@ -68,26 +42,14 @@ export default async function handler(
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
 
-    const body =
-        typeof req.body === "string" && req.body.length > 0
-            ? (() => {
-                  try {
-                      return JSON.parse(req.body);
-                  } catch {
-                      return null;
-                  }
-              })()
-            : req.body;
+    const body = parseJsonBody(req);
+    if (!body) return res.status(400).json({ error: "Invalid JSON body" });
 
-    if (!body || typeof body !== "object") {
-        return res.status(400).json({ error: "Invalid JSON body" });
-    }
-
-    const main = validateName((body as any).mainProduct ?? (body as any).mainproduct, "mainProduct");
+    const main = validateNewName(body.mainProduct ?? body.mainproduct, "mainProduct");
     if (main.error) return res.status(400).json({ error: main.error });
     const mainProduct = main.value as string;
 
-    const rawSubs = (body as any).subProduct ?? (body as any).subproduct ?? [];
+    const rawSubs = body.subProduct ?? body.subproduct ?? [];
     const subList = Array.isArray(rawSubs) ? rawSubs : [rawSubs];
 
     const requestedSubs: string[] = [];
@@ -96,7 +58,8 @@ export default async function handler(
 
     for (const raw of subList) {
         if (typeof raw === "string" && raw.trim() === "") continue; // ignore blank rows
-        const sub = validateName(raw, "subProduct");
+
+        const sub = validateNewName(raw, "subProduct");
         if (sub.error) return res.status(400).json({ error: sub.error });
 
         const value = sub.value as string;
@@ -141,9 +104,7 @@ export default async function handler(
         }
 
         const existingSubs: string[] = Array.isArray(existing?.subProduct)
-            ? (existing!.subProduct as any[]).filter(
-                  (s): s is string => typeof s === "string" && s.length > 0,
-              )
+            ? existing.subProduct.filter((s: any): s is string => typeof s === "string" && s.length > 0)
             : [];
 
         const added: string[] = [];
@@ -162,10 +123,7 @@ export default async function handler(
         }
 
         if (!existing) {
-            await productNameCollection.insertOne({
-                mainProduct,
-                subProduct: added,
-            });
+            await productNameCollection.insertOne({ mainProduct, subProduct: added });
         } else if (added.length > 0) {
             await productNameCollection.updateOne(
                 { mainProduct },

@@ -1,146 +1,142 @@
-// Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from "next";
 import clientPromise from "../../lib/mongodb";
+import { listSubProductCollections, mapWithConcurrency } from "../../lib/productCollections";
 
-type Data = {
-    [key: string]: any;
-};
+// Test results for one day, or for a whole date range in a single request.
+//
+//   GET /api/getsummary?date=YYYY-MM-DD         -> { "<main>::<sub>": doc }
+//   GET /api/getsummary?from=...&to=...         -> { "YYYY-MM-DD": { "<main>::<sub>": doc } }
+//
+// The range form exists because the history grid needs two to four weeks at
+// once: asking per day costs one query per collection *per day*, while one
+// `$in` covers the whole range for the same number of queries.
+//
+// A subproduct collection can hold one document per main product for the same
+// date, so entries are keyed by "<main>::<sub>". Keys stay case-sensitive: two
+// main products whose names differ only by case are distinct products and must
+// not collapse into one entry.
 
-export default async function handler(
-    req: NextApiRequest,
-    res: NextApiResponse<Data>
-) {
+type DayMap = Record<string, any>;
+
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+const MAX_RANGE_DAYS = 92;
+const CACHE_TTL_MS = 15_000;
+
+const PROJECTION = {
+    _id: 0,
+    date: 1,
+    time: 1,
+    mainproduct: 1,
+    "nametest.name": 1,
+    "nametest.pass": 1,
+    "nametest.fail": 1,
+    "nametest.error": 1,
+    "nametest.time": 1,
+    "sonar.projectKey": 1,
+    "sonar.hostUrl": 1,
+    "sonar.fetchedAtDate": 1,
+    "sonar.fetchedAtTime": 1,
+    "sonar.summary": 1,
+} as const;
+
+function single(value: string | string[] | undefined): string | undefined {
+    if (typeof value === "string") return value;
+    if (Array.isArray(value)) return value[0];
+    return undefined;
+}
+
+/** Inclusive list of YYYY-MM-DD keys, or null when the range is unusable. */
+function buildDateRange(from: string, to: string): string[] | null {
+    const start = Date.parse(`${from}T00:00:00Z`);
+    const end = Date.parse(`${to}T00:00:00Z`);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) return null;
+
+    const days = Math.round((end - start) / 86_400_000) + 1;
+    if (days > MAX_RANGE_DAYS) return null;
+
+    return Array.from(
+        { length: days },
+        (_, i) => new Date(start + i * 86_400_000).toISOString().slice(0, 10),
+    );
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== "GET") {
         res.setHeader("Allow", ["GET"]);
         return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
 
-    try {
-        const { date } = req.query;
+    const date = single(req.query.date as any);
+    const from = single(req.query.from as any);
+    const to = single(req.query.to as any);
 
-        if (!date) {
-            res.status(400).json({ error: "date query parameter is required" });
-            return;
+    let dates: string[];
+    let cacheKey: string;
+
+    if (from || to) {
+        if (!from || !to || !DATE_PATTERN.test(from) || !DATE_PATTERN.test(to)) {
+            return res.status(400).json({ error: "from and to must both be yyyy-mm-dd" });
         }
-
-        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-        if (typeof date !== "string" || !dateRegex.test(date)) {
+        const range = buildDateRange(from, to);
+        if (!range) {
             return res
                 .status(400)
-                .json({ error: "Invalid date format. Use yyyy-mm-dd" });
+                .json({ error: `Invalid range (max ${MAX_RANGE_DAYS} days, from must be <= to)` });
         }
-
-        const CACHE_TTL_MS = 15_000;
-        type CacheEntry = { expiresAt: number; value: any };
-        const globalAny = globalThis as any;
-        const cache: Map<string, CacheEntry> =
-            globalAny.__automed_getsummary_cache ??
-            (globalAny.__automed_getsummary_cache = new Map());
-
-        const cacheKey = `date:${date}`;
-        const now = Date.now();
-        const cached = cache.get(cacheKey);
-        if (cached && cached.expiresAt > now) {
-            res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
-            return res.status(200).json(cached.value);
+        dates = range;
+        cacheKey = `range:${from}:${to}`;
+    } else {
+        if (!date || !DATE_PATTERN.test(date)) {
+            return res.status(400).json({ error: "date query parameter is required (yyyy-mm-dd)" });
         }
+        dates = [date];
+        cacheKey = `date:${date}`;
+    }
 
+    const globalAny = globalThis as any;
+    const cache: Map<string, { expiresAt: number; value: any }> =
+        globalAny.__automed_getsummary_cache ??
+        (globalAny.__automed_getsummary_cache = new Map());
+
+    const now = Date.now();
+    const cached = cache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+        res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
+        return res.status(200).json(cached.value);
+    }
+
+    try {
         const client = await clientPromise;
         const db = client.db("automedtest-dashboard");
+        const collectionNames = await listSubProductCollections(db);
 
-        // Determine collection list from product_name first (faster than listCollections).
-        const products = await db
-            .collection("product_name")
-            .find(
-                {},
-                {
-                    projection: {
-                        _id: 0,
-                        subProduct: 1,
-                    },
-                },
-            )
-            .toArray();
+        const byDate: Record<string, DayMap> = {};
+        for (const d of dates) byDate[d] = {};
 
-        let collectionNames = Array.from(
-            new Set(
-                products
-                    .flatMap((p: any) => (Array.isArray(p.subProduct) ? p.subProduct : []))
-                    .filter((n: any) => typeof n === "string" && n.length > 0),
-            ),
-        ) as string[];
-
-        if (collectionNames.length === 0) {
-            const collections = await db.listCollections().toArray();
-            collectionNames = collections
-                .map((c: any) => c.name)
-                .filter((n: string) => n !== "product_name");
-        }
-
-        const data: { [key: string]: any } = {};
-
-        async function mapWithConcurrency<T>(
-            items: T[],
-            concurrency: number,
-            fn: (item: T) => Promise<void>,
-        ) {
-            let index = 0;
-            const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
-                while (index < items.length) {
-                    const currentIndex = index++;
-                    await fn(items[currentIndex]);
-                }
-            });
-            await Promise.all(workers);
-        }
-
-        // A subproduct collection can hold one document per main product for the
-        // same date, so read them all and key the result by "<main>::<sub>".
-        // Keys stay case-sensitive: two main products whose names differ only by
-        // case are distinct products and must not collapse into one entry.
         await mapWithConcurrency(collectionNames, 10, async (collectionName) => {
             try {
                 const docs = await db
                     .collection(collectionName)
-                    .find(
-                        { date },
-                        {
-                            projection: {
-                                _id: 0,
-                                date: 1,
-                                time: 1,
-                                mainproduct: 1,
-                                "nametest.name": 1,
-                                "nametest.pass": 1,
-                                "nametest.fail": 1,
-                                "nametest.error": 1,
-                                "nametest.time": 1,
-                                "sonar.projectKey": 1,
-                                "sonar.hostUrl": 1,
-                                "sonar.fetchedAtDate": 1,
-                                "sonar.fetchedAtTime": 1,
-                                "sonar.summary": 1,
-                            },
-                        },
-                    )
+                    .find({ date: { $in: dates } }, { projection: PROJECTION })
                     .toArray();
 
                 for (const doc of docs) {
+                    const day = byDate[doc.date as string];
+                    if (!day) continue;
                     const main = typeof doc.mainproduct === "string" ? doc.mainproduct : "";
-                    data[`${main}::${collectionName}`] = {
-                        ...doc,
-                        subproduct: collectionName,
-                    };
+                    day[`${main}::${collectionName}`] = { ...doc, subproduct: collectionName };
                 }
             } catch {
-                // ignore per-collection errors: the row simply has no cell
+                // ignore per-collection errors: those rows simply have no cells
             }
         });
 
-        cache.set(cacheKey, { expiresAt: now + CACHE_TTL_MS, value: data });
+        const payload = dates.length === 1 && !from ? byDate[dates[0]] : byDate;
+
+        cache.set(cacheKey, { expiresAt: now + CACHE_TTL_MS, value: payload });
         res.setHeader("Cache-Control", "public, s-maxage=15, stale-while-revalidate=60");
-        return res.status(200).json(data);
-    } catch (error) {
-        res.status(500).json({ error: "Internal Server Error" });
+        return res.status(200).json(payload);
+    } catch {
+        return res.status(500).json({ error: "Internal Server Error" });
     }
 }

@@ -1,24 +1,57 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import clientPromise from "../../lib/mongodb";
+import { mapWithConcurrency } from "../../lib/productCollections";
 
-type Data = {
-    [key: string]: any;
+// Navbar data: every main product with its subproducts, each carrying the
+// status dot and SonarQube info.
+//
+// A subproduct collection (e.g. "order") can be shared by several main
+// products, with documents distinguished only by the `mainproduct` field, so
+// everything here is computed per (mainProduct, subProduct) pair.
+//
+// One aggregate per collection groups by `mainproduct` and hands back that
+// product's documents newest-first; asking per pair instead cost roughly twice
+// as many round trips for the same answer.
+
+type Flag = "pass" | "fail" | "error";
+type SonarScannedAt = { date: string; time?: string };
+
+type PairInfo = {
+    flag: Flag | null;
+    hasSonar: boolean;
+    sonarScannedAt: SonarScannedAt | null;
 };
 
-export default async function handler(
-    req: NextApiRequest,
-    res: NextApiResponse<Data>,
-) {
+const CACHE_TTL_MS = 15_000;
+
+const pairKey = (mainProduct: string, subName: string) => `${mainProduct}::${subName}`;
+
+/** Single dot per product: error takes priority over fail. */
+function flagOf(nametest: any): Flag | null {
+    if (!Array.isArray(nametest) || nametest.length === 0) return null;
+
+    let hasFail = false;
+    let hasError = false;
+    for (const t of nametest) {
+        if (typeof t?.fail === "number" && t.fail > 0) hasFail = true;
+        if (typeof t?.error === "number" && t.error > 0) hasError = true;
+        if (hasFail && hasError) break;
+    }
+
+    if (hasError) return "error";
+    if (hasFail) return "fail";
+    return "pass";
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
     if (req.method !== "GET") {
         res.setHeader("Allow", ["GET"]);
         return res.status(405).end(`Method ${req.method} Not Allowed`);
     }
 
-    // small TTL cache: this endpoint is hit frequently by the navbar
-    const CACHE_TTL_MS = 15_000;
-    type CacheEntry = { expiresAt: number; value: any };
+    // Small TTL cache: this endpoint is hit by the navbar on every page.
     const globalAny = globalThis as any;
-    const cache: Map<string, CacheEntry> =
+    const cache: Map<string, { expiresAt: number; value: any }> =
         globalAny.__automed_getnewproductname_cache ??
         (globalAny.__automed_getnewproductname_cache = new Map());
 
@@ -33,148 +66,93 @@ export default async function handler(
         const client = await clientPromise;
         const db = client.db("automedtest-dashboard");
 
-        // Case-insensitive compare helper
         const ciCompare = (a: string, b: string) =>
             a.localeCompare(b, undefined, { sensitivity: "accent", caseFirst: "false" });
 
-        // Keep payload small: only what UI needs
-        let products = await db
+        const products = await db
             .collection("product_name")
-            .find(
-                {},
-                {
-                    projection: {
-                        _id: 0,
-                        mainProduct: 1,
-                        subProduct: 1,
-                    },
-                },
-            )
+            .find({}, { projection: { _id: 0, mainProduct: 1, subProduct: 1 } })
             .toArray();
 
-        // A subproduct collection (e.g. "order") can be shared by multiple main
-        // products, with documents distinguished only by the `mainproduct` field.
-        // Compute the flag per (mainProduct, subProduct) pair and query with that
-        // filter so the dot matches what the dashboard shows for the same product.
-        const flagKey = (mainProduct: string, subName: string) =>
-            `${mainProduct}::${subName}`;
+        const collectionNames = Array.from(
+            new Set(
+                products
+                    .flatMap((p: any) => (Array.isArray(p.subProduct) ? p.subProduct : []))
+                    .filter((n: any): n is string => typeof n === "string" && n.length > 0),
+            ),
+        );
 
-        const productSubPairs = products.flatMap((p: any) => {
-            const main = typeof p.mainProduct === "string" ? p.mainProduct : "";
-            const subs = Array.isArray(p.subProduct) ? p.subProduct : [];
-            return subs
-                .filter((n: any) => typeof n === "string" && n.length > 0)
-                .map((subName: string) => ({ main, subName }));
-        }) as Array<{ main: string; subName: string }>;
+        const infoByPair: Record<string, PairInfo> = {};
 
-        const flagsByPair: Record<string, "pass" | "fail" | "error"> = {};
-        const sonarByPair: Record<string, boolean> = {};
-        const sonarScannedByPair: Record<string, { date: string; time?: string }> = {};
-
-        async function mapWithConcurrency<T>(
-            items: T[],
-            concurrency: number,
-            fn: (item: T) => Promise<void>,
-        ) {
-            let index = 0;
-            const workers = Array.from({ length: Math.max(1, concurrency) }, async () => {
-                while (index < items.length) {
-                    const currentIndex = index++;
-                    await fn(items[currentIndex]);
-                }
-            });
-            await Promise.all(workers);
-        }
-
-        await mapWithConcurrency(productSubPairs, 10, async ({ main, subName }) => {
-            const key = flagKey(main, subName);
+        await mapWithConcurrency(collectionNames, 10, async (collectionName) => {
             try {
-                // Does this product have any SonarQube data, and when was it last
-                // scanned? (Sonar data may live in a different dated document than
-                // the latest test results, so query it separately.)
-                const sonarDoc = await db.collection(subName).findOne(
-                    { mainproduct: main, "sonar.projectKey": { $exists: true } },
-                    {
-                        sort: { date: -1, "sonar.fetchedAtTime": -1 },
-                        projection: {
-                            _id: 0,
-                            date: 1,
-                            "sonar.fetchedAtDate": 1,
-                            "sonar.fetchedAtTime": 1,
+                const groups = await db
+                    .collection(collectionName)
+                    .aggregate([
+                        {
+                            $project: {
+                                _id: 0,
+                                date: 1,
+                                mainproduct: 1,
+                                nametest: { fail: 1, error: 1 },
+                                sonar: {
+                                    projectKey: 1,
+                                    fetchedAtDate: 1,
+                                    fetchedAtTime: 1,
+                                },
+                            },
                         },
-                    },
-                );
-                sonarByPair[key] = Boolean(sonarDoc);
-                if (sonarDoc) {
-                    const s = (sonarDoc as any).sonar ?? {};
-                    sonarScannedByPair[key] = {
-                        date: s.fetchedAtDate || (sonarDoc as any).date || "",
-                        time: typeof s.fetchedAtTime === "string" ? s.fetchedAtTime : undefined,
+                        { $sort: { date: -1, "sonar.fetchedAtTime": -1 } },
+                        { $group: { _id: "$mainproduct", docs: { $push: "$$ROOT" } } },
+                    ])
+                    .toArray();
+
+                for (const group of groups) {
+                    const main = group._id;
+                    if (typeof main !== "string" || !main) continue;
+
+                    const docs = group.docs as any[];
+                    // Sonar results can sit in an older document than the latest
+                    // test run, so the two are looked up separately.
+                    const sonarDoc = docs.find((d) => d?.sonar?.projectKey);
+
+                    infoByPair[pairKey(main, collectionName)] = {
+                        flag: flagOf(docs[0]?.nametest),
+                        hasSonar: Boolean(sonarDoc),
+                        sonarScannedAt: sonarDoc
+                            ? {
+                                  date: sonarDoc.sonar.fetchedAtDate || sonarDoc.date || "",
+                                  time:
+                                      typeof sonarDoc.sonar.fetchedAtTime === "string"
+                                          ? sonarDoc.sonar.fetchedAtTime
+                                          : undefined,
+                              }
+                            : null,
                     };
                 }
-
-                const latest = await db.collection(subName).findOne(
-                    { mainproduct: main },
-                    {
-                        sort: { date: -1 },
-                        projection: {
-                            _id: 0,
-                            "nametest.fail": 1,
-                            "nametest.error": 1,
-                        },
-                    },
-                );
-                if (
-                    !latest ||
-                    !Array.isArray((latest as any).nametest) ||
-                    (latest as any).nametest.length === 0
-                ) {
-                    // No test data -> no status dot (leave flag unset).
-                    return;
-                }
-
-                let hasFail = false;
-                let hasError = false;
-                for (const t of (latest as any).nametest) {
-                    if (typeof t?.fail === "number" && t.fail > 0) hasFail = true;
-                    if (typeof t?.error === "number" && t.error > 0) hasError = true;
-                    if (hasFail && hasError) break;
-                }
-
-                // Show a single dot: error takes priority over fail.
-                let flag: "pass" | "fail" | "error" = "pass";
-                if (hasError) flag = "error";
-                else if (hasFail) flag = "fail";
-
-                flagsByPair[key] = flag;
             } catch {
-                // ignore collection read errors and leave flag unset (no dot)
+                // ignore collection read errors: those pairs get no dot
             }
         });
 
-        // Sort subProduct arrays and main products case-insensitively
-        products = products
+        const mappedProducts = products
             .map((p: any) => {
-                const subs = Array.isArray(p.subProduct) ? p.subProduct.slice() : [];
-                subs.sort(ciCompare);
-                return { ...p, subProduct: subs };
+                const subs = (Array.isArray(p.subProduct) ? p.subProduct : [])
+                    .filter((n: any): n is string => typeof n === "string" && n.length > 0)
+                    .sort(ciCompare)
+                    .map((name: string) => {
+                        const info = infoByPair[pairKey(p.mainProduct, name)];
+                        return {
+                            name,
+                            flag: info?.flag ?? null,
+                            hasSonar: info?.hasSonar ?? false,
+                            sonarScannedAt: info?.sonarScannedAt ?? null,
+                        };
+                    });
+
+                return { mainProduct: p.mainProduct, subProduct: subs };
             })
             .sort((x: any, y: any) => ciCompare(x.mainProduct, y.mainProduct));
-
-        const mappedProducts = products.map((p: any) => {
-            const subs = Array.isArray(p.subProduct)
-                ? p.subProduct.map((name: string) => ({
-                      name,
-                      flag: flagsByPair[flagKey(p.mainProduct, name)] ?? null,
-                      hasSonar: sonarByPair[flagKey(p.mainProduct, name)] ?? false,
-                      sonarScannedAt: sonarScannedByPair[flagKey(p.mainProduct, name)] ?? null,
-                  }))
-                : [];
-            return {
-                mainProduct: p.mainProduct,
-                subProduct: subs,
-            };
-        });
 
         const payload = { products: mappedProducts };
         cache.set("all", { expiresAt: now + CACHE_TTL_MS, value: payload });

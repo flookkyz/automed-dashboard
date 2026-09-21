@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import clientPromise from "../../lib/mongodb";
 import { invalidateProductCaches } from "../../lib/productCache";
+import { parseJsonBody, validateExistingName } from "../../lib/productNames";
 
 // Remove a registered product name, and optionally its test results.
 //
@@ -27,27 +28,7 @@ type ResponseData = {
     keptCollections: KeptCollection[];
 };
 
-const RESERVED_NAMES = new Set(["product_name"]);
-
-/**
- * Names are only matched against what is already stored, so this is lenient on
- * purpose: it rejects what is unusable as a collection name rather than
- * enforcing the stricter pattern new names are created with.
- */
-function validateExistingName(raw: unknown, label: string): { value?: string; error?: string } {
-    if (typeof raw !== "string") return { error: `${label} must be a string` };
-
-    const value = raw.trim();
-    if (!value) return { error: `${label} is required` };
-    if (value.includes("\0") || value.includes("$")) {
-        return { error: `${label} "${value}" is invalid` };
-    }
-    if (RESERVED_NAMES.has(value.toLowerCase()) || value.toLowerCase().startsWith("system.")) {
-        return { error: `${label} "${value}" is reserved` };
-    }
-
-    return { value };
-}
+const NAMESPACE_NOT_FOUND = 26;
 
 export default async function handler(
     req: NextApiRequest,
@@ -58,29 +39,14 @@ export default async function handler(
         return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
     }
 
-    const body =
-        typeof req.body === "string" && req.body.length > 0
-            ? (() => {
-                  try {
-                      return JSON.parse(req.body);
-                  } catch {
-                      return null;
-                  }
-              })()
-            : req.body;
+    const body = parseJsonBody(req);
+    if (!body) return res.status(400).json({ error: "Invalid JSON body" });
 
-    if (!body || typeof body !== "object") {
-        return res.status(400).json({ error: "Invalid JSON body" });
-    }
-
-    const main = validateExistingName(
-        (body as any).mainProduct ?? (body as any).mainproduct,
-        "mainProduct",
-    );
+    const main = validateExistingName(body.mainProduct ?? body.mainproduct, "mainProduct");
     if (main.error) return res.status(400).json({ error: main.error });
     const mainProduct = main.value as string;
 
-    const rawSub = (body as any).subProduct ?? (body as any).subproduct;
+    const rawSub = body.subProduct ?? body.subproduct;
     let subProduct: string | null = null;
     if (rawSub !== undefined && rawSub !== null && rawSub !== "") {
         const sub = validateExistingName(rawSub, "subProduct");
@@ -88,7 +54,7 @@ export default async function handler(
         subProduct = sub.value as string;
     }
 
-    const deleteTestData = (body as any).deleteTestData === true;
+    const deleteTestData = body.deleteTestData === true;
 
     try {
         const client = await clientPromise;
@@ -101,15 +67,13 @@ export default async function handler(
         }
 
         const existingSubs: string[] = Array.isArray(doc.subProduct)
-            ? (doc.subProduct as any[]).filter(
-                  (s): s is string => typeof s === "string" && s.length > 0,
-              )
+            ? doc.subProduct.filter((s: any): s is string => typeof s === "string" && s.length > 0)
             : [];
 
         if (subProduct && !existingSubs.includes(subProduct)) {
-            return res.status(404).json({
-                error: `Subproduct not found under ${mainProduct}: ${subProduct}`,
-            });
+            return res
+                .status(404)
+                .json({ error: `Subproduct not found under ${mainProduct}: ${subProduct}` });
         }
 
         const targets = subProduct ? [subProduct] : existingSubs;
@@ -120,7 +84,7 @@ export default async function handler(
         if (subProduct) {
             await productNameCollection.updateOne(
                 { mainProduct },
-                { $pull: { subProduct: subProduct } as any },
+                { $pull: { subProduct } } as any,
             );
         } else {
             await productNameCollection.deleteOne({ mainProduct });
@@ -132,9 +96,7 @@ export default async function handler(
 
         if (deleteTestData) {
             for (const name of targets) {
-                const result = await db
-                    .collection(name)
-                    .deleteMany({ mainproduct: mainProduct });
+                const result = await db.collection(name).deleteMany({ mainproduct: mainProduct });
                 deletedDocuments += result.deletedCount ?? 0;
 
                 // Still listed under another main product? Leave the collection
@@ -163,17 +125,15 @@ export default async function handler(
                 // A subproduct registered ahead of its first run has no
                 // collection at all; skip it quietly rather than reporting a
                 // drop that did not happen.
-                const exists = await db
-                    .listCollections({ name }, { nameOnly: true })
-                    .hasNext();
+                const exists = await db.listCollections({ name }, { nameOnly: true }).hasNext();
                 if (!exists) continue;
 
                 try {
                     await db.collection(name).drop();
                     droppedCollections.push(name);
                 } catch (e: any) {
-                    // NamespaceNotFound: raced with another delete; nothing left to do.
-                    if (e?.code !== 26) {
+                    // Raced with another delete; nothing left to do.
+                    if (e?.code !== NAMESPACE_NOT_FOUND) {
                         keptCollections.push({
                             name,
                             reason: e?.message ? String(e.message) : "drop failed",
