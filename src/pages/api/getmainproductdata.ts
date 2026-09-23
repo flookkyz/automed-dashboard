@@ -18,7 +18,10 @@ type ResponseData = {
 };
 
 const CACHE_TTL_MS = 15_000;
-const cache = new Map<string, { expiresAt: number; data: ResponseData }>();
+// [old] const cache = new Map<string, { expiresAt: number; data: ResponseData }>();
+const cache: Map<string, { expiresAt: number; data: ResponseData }> =
+	(globalThis as any).__automed_getmainproductdata_cache ??
+	((globalThis as any).__automed_getmainproductdata_cache = new Map());
 
 async function asyncPool<T, R>(
 	items: T[],

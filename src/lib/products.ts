@@ -24,6 +24,13 @@ export function subNames(product: Product | null | undefined): string[] {
     return (product?.subProduct ?? []).map(subName).filter(Boolean);
 }
 
+export const PRODUCTS_CHANGED_EVENT = "automed:products-changed";
+
+export function notifyProductsChanged(): void {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new Event(PRODUCTS_CHANGED_EVENT));
+}
+
 export type ProductsState = {
     products: Product[];
     loading: boolean;
@@ -41,7 +48,8 @@ export function useProducts(): ProductsState {
         setLoading(true);
         setError(null);
         try {
-            const resp = await fetch(`/api/getnewproductname`);
+            // [old] const resp = await fetch(`/api/getnewproductname`);
+            const resp = await fetch(`/api/getnewproductname`, { cache: "no-store" });
             if (!resp.ok) throw new Error(`Network response was not ok: ${resp.status}`);
             const data = await resp.json();
             setProducts((data.products || []) as Product[]);

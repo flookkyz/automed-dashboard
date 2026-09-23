@@ -6,10 +6,10 @@ import { parseJsonBody, validateExistingName } from "../../lib/productNames";
 // Remove a registered product name, and optionally its test results.
 //
 // POST body:
-//   { mainProduct: string, subProduct?: string, deleteTestData?: boolean }
+//   { mainProduct: string, subProduct?: string | string[], deleteTestData?: boolean }
 //
-// With `subProduct` only that name is pulled from the main product; without it
-// the whole main product entry is removed along with all of its subproducts.
+// With `subProduct` only those names are pulled from the main product; without
+// it the whole main product entry is removed along with all of its subproducts.
 //
 // `deleteTestData` is scoped by `mainproduct`: a subproduct collection can be
 // shared by several main products (their documents differ only by that field),
@@ -46,12 +46,25 @@ export default async function handler(
     if (main.error) return res.status(400).json({ error: main.error });
     const mainProduct = main.value as string;
 
+    /* [old]
     const rawSub = body.subProduct ?? body.subproduct;
     let subProduct: string | null = null;
     if (rawSub !== undefined && rawSub !== null && rawSub !== "") {
         const sub = validateExistingName(rawSub, "subProduct");
         if (sub.error) return res.status(400).json({ error: sub.error });
         subProduct = sub.value as string;
+    }
+    */
+    const rawSub = body.subProduct ?? body.subproduct;
+    const requestedSubs: string[] = [];
+    for (const raw of Array.isArray(rawSub) ? rawSub : [rawSub]) {
+        if (raw === undefined || raw === null) continue;
+        if (typeof raw === "string" && raw.trim() === "") continue;
+
+        const sub = validateExistingName(raw, "subProduct");
+        if (sub.error) return res.status(400).json({ error: sub.error });
+        const value = sub.value as string;
+        if (!requestedSubs.includes(value)) requestedSubs.push(value);
     }
 
     const deleteTestData = body.deleteTestData === true;
@@ -70,6 +83,7 @@ export default async function handler(
             ? doc.subProduct.filter((s: any): s is string => typeof s === "string" && s.length > 0)
             : [];
 
+        /* [old]
         if (subProduct && !existingSubs.includes(subProduct)) {
             return res
                 .status(404)
@@ -77,10 +91,21 @@ export default async function handler(
         }
 
         const targets = subProduct ? [subProduct] : existingSubs;
+        */
+        const missing = requestedSubs.filter((name) => !existingSubs.includes(name));
+        if (missing.length > 0) {
+            return res.status(404).json({
+                error: `Subproduct not found under ${mainProduct}: ${missing.join(", ")}`,
+            });
+        }
+
+        const removingMainProduct = requestedSubs.length === 0;
+        const targets = removingMainProduct ? existingSubs : requestedSubs;
 
         // Drop the registration first: that is the part the user asked for, and
         // if the optional data cleanup fails afterwards the leftover documents
         // are harmless (and reachable again by re-adding the name).
+        /* [old]
         if (subProduct) {
             await productNameCollection.updateOne(
                 { mainProduct },
@@ -88,6 +113,15 @@ export default async function handler(
             );
         } else {
             await productNameCollection.deleteOne({ mainProduct });
+        }
+        */
+        if (removingMainProduct) {
+            await productNameCollection.deleteOne({ mainProduct });
+        } else {
+            await productNameCollection.updateOne(
+                { mainProduct },
+                { $pull: { subProduct: { $in: requestedSubs } } } as any,
+            );
         }
 
         let deletedDocuments = 0;
@@ -147,9 +181,12 @@ export default async function handler(
 
         return res.status(200).json({
             mainProduct,
-            subProduct,
+            // [old] subProduct,
+            // Kept for callers that delete exactly one name at a time.
+            subProduct: requestedSubs.length === 1 ? requestedSubs[0] : null,
             removedSubProducts: targets,
-            removedMainProduct: !subProduct,
+            // [old] removedMainProduct: !subProduct,
+            removedMainProduct: removingMainProduct,
             deletedTestData: deleteTestData,
             deletedDocuments,
             droppedCollections,

@@ -4,6 +4,7 @@ import MenuItem from "../components/menuItem";
 import { useRouter } from "next/router";
 import LoadingState from "./LoadingState";
 import { isAdmin, useRole } from "../lib/role";
+import { PRODUCTS_CHANGED_EVENT } from "../lib/products";
 
 type Flag = "all" | "fail" | "error" | "pass" | undefined;
 
@@ -39,7 +40,8 @@ function NewNavbarpage() {
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const response = await fetch(`/api/getnewproductname`);
+        // [old] const response = await fetch(`/api/getnewproductname`);
+        const response = await fetch(`/api/getnewproductname`, { cache: "no-store" });
         if (!response.ok)
           throw new Error(`Network response was not ok: ${response.status}`);
         const data = await response.json();
@@ -56,6 +58,9 @@ function NewNavbarpage() {
     };
 
     fetchProducts();
+
+    window.addEventListener(PRODUCTS_CHANGED_EVENT, fetchProducts);
+    return () => window.removeEventListener(PRODUCTS_CHANGED_EVENT, fetchProducts);
   }, []);
 
   const handleFilter = useCallback((value: string) => {

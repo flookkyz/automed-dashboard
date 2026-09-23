@@ -9,9 +9,12 @@ import {
   Legend,
 } from "chart.js";
 import { useRouter } from "next/router";
+import Swal from "sweetalert2";
 import SearchInput from "./scarchInput";
 import LoadingState from "./LoadingState";
 import ComingSoon from "./ComingSoon";
+import { isAdmin, useRole } from "../lib/role";
+import { notifyProductsChanged } from "../lib/products";
 
 ChartJS.register(CategoryScale, LinearScale, ArcElement, Tooltip, Legend);
 
@@ -75,10 +78,14 @@ export default function MainProductDashboard({
   mainproduct?: string;
 }) {
   const router = useRouter();
+  const role = useRole();
+  const canDelete = isAdmin(role);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiResponse | null>(null);
   const [filterText, setFilterText] = useState<string>("");
+  const [reloadToken, setReloadToken] = useState(0);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     if (!mainproduct) return;
@@ -110,7 +117,8 @@ export default function MainProductDashboard({
     return () => {
       isMounted = false;
     };
-  }, [mainproduct]);
+    // [old] }, [mainproduct]);
+  }, [mainproduct, reloadToken]);
 
   const rows = useMemo<Row[]>(() => {
     const subs = data?.subproducts ?? [];
@@ -185,6 +193,72 @@ export default function MainProductDashboard({
     if (!q) return rows;
     return rows.filter((r) => r.subproduct.toLowerCase().includes(q));
   }, [rows, filterText]);
+
+  const handleDeleteSub = async (subproduct: string) => {
+    if (!mainproduct || deleting) return;
+
+    const confirm = await Swal.fire({
+      icon: "warning",
+      title: "ยืนยันการลบ",
+      html:
+        `กำลังจะลบ <b>${mainproduct} &gt; ${subproduct}</b> ออกจากเมนู` +
+        `<br/><br/><small>ถ้าไม่ติ๊ก ผลเทสต์เก่าจะยังอยู่ใน DB</small>`,
+      input: "checkbox",
+      inputPlaceholder: "ลบผลเทสต์เก่าด้วย (ย้อนกลับไม่ได้)",
+      showCancelButton: true,
+      confirmButtonText: "ลบ",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#f77575",
+    });
+
+    if (!confirm.isConfirmed) return;
+
+    setDeleting(subproduct);
+    try {
+      const resp = await fetch(`/api/deleteproductname`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mainProduct: mainproduct,
+          subProduct: subproduct,
+          deleteTestData: confirm.value === 1,
+        }),
+      });
+
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result?.error || `Request failed: ${resp.status}`);
+
+      const lines = [`ลบ ${result.mainProduct} > ${result.subProduct} แล้ว`];
+      if (result.deletedTestData) {
+        lines.push(`ลบผลเทสต์ ${result.deletedDocuments} รายการ`);
+        if (result.droppedCollections?.length) {
+          lines.push(`ลบ collection: ${result.droppedCollections.join(", ")}`);
+        }
+        if (result.keptCollections?.length) {
+          lines.push(
+            `เก็บ collection ไว้: ${result.keptCollections
+              .map((k: any) => `${k.name} (${k.reason})`)
+              .join(", ")}`
+          );
+        }
+      } else {
+        lines.push("ผลเทสต์เก่ายังอยู่ใน DB");
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: "ลบเรียบร้อย",
+        html: lines.join("<br/>"),
+      });
+
+      notifyProductsChanged();
+      setReloadToken((t) => t + 1);
+    } catch (e: any) {
+      Swal.fire({ icon: "error", title: "Oops...", text: e?.message ?? String(e) });
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   if (!mainproduct) {
     return (
@@ -401,15 +475,25 @@ export default function MainProductDashboard({
                       <th style={{ width: "8%" }} className="py-2 text-center">
                         Total
                       </th>
-                      <th style={{ width: "28%" }} className="py-2 px-4 text-left">
+                      {/* [old] <th style={{ width: "28%" }} className="py-2 px-4 text-left"> */}
+                      <th
+                        style={{ width: canDelete ? "22%" : "28%" }}
+                        className="py-2 px-4 text-left"
+                      >
                         Latest Date
                       </th>
+                      {canDelete && (
+                        <th style={{ width: "6%" }} className="py-2 text-center">
+                          จัดการ
+                        </th>
+                      )}
                     </tr>
                   </thead>
                   <tbody>
                     {filteredRows.length === 0 ? (
                       <tr className="bg-gray-500">
-                        <td className="py-3 px-4" colSpan={6}>
+                        {/* [old] <td className="py-3 px-4" colSpan={6}> */}
+                        <td className="py-3 px-4" colSpan={canDelete ? 7 : 6}>
                           No subproducts found
                         </td>
                       </tr>
@@ -451,6 +535,38 @@ export default function MainProductDashboard({
                               "-"
                             )}
                           </td>
+                          {canDelete && (
+                            <td className="py-2 text-center">
+                              <button
+                                type="button"
+                                title={`ลบ ${r.subproduct}`}
+                                disabled={deleting === r.subproduct}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteSub(r.subproduct);
+                                }}
+                                className="inline-flex items-center justify-center rounded p-2 text-gray-200 hover:bg-[#f77575] hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                              >
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  viewBox="0 0 24 24"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  strokeWidth="2"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  className="h-5 w-5"
+                                  aria-hidden="true"
+                                >
+                                  <path d="M3 6h18" />
+                                  <path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" />
+                                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                                  <path d="M10 11v6" />
+                                  <path d="M14 11v6" />
+                                </svg>
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))
                     )}

@@ -5,7 +5,7 @@ import AdminOnly from "../components/AdminOnly";
 import Combobox from "../components/Combobox";
 import LoadingState from "../components/LoadingState";
 import ProductListPanel from "../components/ProductListPanel";
-import { findSimilar, subNames, useProducts } from "../lib/products";
+import { findSimilar, notifyProductsChanged, subNames, useProducts } from "../lib/products";
 
 // Register a main product / sub product name up front, before any test result
 // has been pushed for it. Only the name is stored (in the product_name
@@ -146,6 +146,7 @@ function AddProductForm() {
         html: lines.join("<br/>"),
       });
 
+      notifyProductsChanged();
       if (mainMode === "new") setMainInput("");
       setSubs([""]);
       await reload();

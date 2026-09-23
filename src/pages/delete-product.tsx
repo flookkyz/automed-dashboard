@@ -5,7 +5,7 @@ import AdminOnly from "../components/AdminOnly";
 import Combobox from "../components/Combobox";
 import LoadingState from "../components/LoadingState";
 import ProductListPanel from "../components/ProductListPanel";
-import { subNames, useProducts } from "../lib/products";
+import { notifyProductsChanged, subNames, useProducts } from "../lib/products";
 
 // Remove a registered product name, optionally together with its test results.
 
@@ -17,7 +17,8 @@ function DeleteProductForm() {
 
   const [mode, setMode] = useState<DeleteMode>("sub");
   const [mainInput, setMainInput] = useState("");
-  const [subInput, setSubInput] = useState("");
+  // [old] const [subInput, setSubInput] = useState("");
+  const [selectedSubs, setSelectedSubs] = useState<string[]>([]);
   const [deleteTestData, setDeleteTestData] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -27,12 +28,23 @@ function DeleteProductForm() {
   );
   const subOptions = useMemo(() => subNames(selectedMain), [selectedMain]);
 
-  // Clear a subproduct that does not belong to the newly picked main product.
+  // Drop selections that do not belong to the newly picked main product.
+  /* [old]
   useEffect(() => {
     setSubInput((current) => (current && subOptions.includes(current) ? current : ""));
   }, [subOptions]);
+  */
+  useEffect(() => {
+    setSelectedSubs((current) => current.filter((name) => subOptions.includes(name)));
+  }, [subOptions]);
+
+  const toggleSub = (name: string) =>
+    setSelectedSubs((current) =>
+      current.includes(name) ? current.filter((s) => s !== name) : [...current, name]
+    );
 
   const mainExists = Boolean(selectedMain);
+  /* [old]
   const subExists = subOptions.includes(subInput);
   const canDelete = !submitting && mainExists && (mode === "main" || subExists);
 
@@ -40,6 +52,22 @@ function DeleteProductForm() {
   const confirmWord = mode === "main" ? mainInput : subInput;
   const targetLabel = mode === "main" ? mainInput : `${mainInput} > ${subInput}`;
   const affectedSubs = mode === "main" ? subOptions : subExists ? [subInput] : [];
+  */
+  const canDelete =
+    !submitting && mainExists && (mode === "main" || selectedSubs.length > 0);
+
+  // What the request will remove, used for the preview and the confirmation.
+  // Several names at once have no single word to retype, so the main product
+  // name is what confirms them.
+  const affectedSubs = mode === "main" ? subOptions : selectedSubs;
+  const confirmWord =
+    mode === "sub" && selectedSubs.length === 1 ? selectedSubs[0] : mainInput;
+  const targetLabel =
+    mode === "main"
+      ? mainInput
+      : selectedSubs.length === 1
+      ? `${mainInput} > ${selectedSubs[0]}`
+      : `${mainInput} (${selectedSubs.length} subproduct)`;
 
   const handleDelete = async () => {
     if (!canDelete) return;
@@ -49,8 +77,9 @@ function DeleteProductForm() {
       title: "ยืนยันการลบ",
       html: [
         `กำลังจะลบ <b>${targetLabel}</b>`,
-        mode === "main"
-          ? `รวม subproduct ${affectedSubs.length} ตัว: ${affectedSubs.join(", ") || "-"}`
+        // [old] mode === "main" ? ... : "",
+        mode === "main" || affectedSubs.length > 1
+          ? `subproduct ${affectedSubs.length} ตัว: ${affectedSubs.join(", ") || "-"}`
           : "",
         deleteTestData
           ? `<span style="color:#f77575">ผลเทสต์เก่าของ ${mainInput} จะถูกลบถาวรด้วย</span>`
@@ -78,7 +107,8 @@ function DeleteProductForm() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mainProduct: mainInput,
-          subProduct: mode === "main" ? undefined : subInput,
+          // [old] subProduct: mode === "main" ? undefined : subInput,
+          subProduct: mode === "main" ? undefined : selectedSubs,
           deleteTestData,
         }),
       });
@@ -86,10 +116,17 @@ function DeleteProductForm() {
       const data = await resp.json();
       if (!resp.ok) throw new Error(data?.error || `Request failed: ${resp.status}`);
 
+      /* [old]
       const lines = [
         data.removedMainProduct
           ? `ลบ main product ${data.mainProduct} แล้ว (${data.removedSubProducts.length} subproduct)`
           : `ลบ ${data.mainProduct} > ${data.subProduct} แล้ว`,
+      ];
+      */
+      const lines = [
+        data.removedMainProduct
+          ? `ลบ main product ${data.mainProduct} แล้ว (${data.removedSubProducts.length} subproduct)`
+          : `ลบ ${data.removedSubProducts.length} subproduct จาก ${data.mainProduct}: ${data.removedSubProducts.join(", ")}`,
       ];
       if (data.deletedTestData) {
         lines.push(`ลบผลเทสต์ ${data.deletedDocuments} รายการ`);
@@ -109,7 +146,9 @@ function DeleteProductForm() {
 
       await Swal.fire({ icon: "success", title: "ลบเรียบร้อย", html: lines.join("<br/>") });
 
-      setSubInput("");
+      notifyProductsChanged();
+      // [old] setSubInput("");
+      setSelectedSubs([]);
       if (mode === "main") setMainInput("");
       setDeleteTestData(false);
       await reload();
@@ -141,7 +180,8 @@ function DeleteProductForm() {
                   checked={mode === "sub"}
                   onChange={() => setMode("sub")}
                 />
-                sub product ตัวเดียว
+                {/* [old] sub product ตัวเดียว */}
+                เลือก sub product (มากกว่า 1 ตัวก็ได้)
               </label>
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -172,22 +212,73 @@ function DeleteProductForm() {
             )}
           </div>
 
+          {/* [old] the single-name Combobox this picker replaces:
           {mode === "sub" && (
             <div className="mb-6">
               <label className="block font-semibold mb-2">Sub product</label>
-              <Combobox
-                value={subInput}
-                onChange={setSubInput}
-                options={subOptions}
-                disabled={!mainExists}
-                placeholder={
-                  mainExists ? "พิมพ์เพื่อค้นหา หรือกด ▼ ดูทั้งหมด" : "เลือก main product ก่อน"
-                }
-                emptyText="main product นี้ยังไม่มี subproduct"
-              />
-              {subInput && !subExists && (
-                <p className="text-red-400 text-sm mt-2">
-                  ไม่พบ subproduct ชื่อนี้ใน {mainInput}
+              <Combobox value={subInput} onChange={setSubInput} options={subOptions} disabled={!mainExists} />
+            </div>
+          )}
+          */}
+          {mode === "sub" && (
+            <div className="mb-6">
+              <div className="mb-2 flex items-center justify-between">
+                <label className="block font-semibold">Sub product</label>
+                {mainExists && subOptions.length > 0 && (
+                  <div className="flex gap-2 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubs(subOptions)}
+                      className="rounded px-3 py-1 bg-gray-600 hover:bg-gray-500 transition-colors"
+                    >
+                      เลือกทั้งหมด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSubs([])}
+                      disabled={selectedSubs.length === 0}
+                      className="rounded px-3 py-1 bg-gray-600 hover:bg-gray-500 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    >
+                      ล้าง
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {!mainExists ? (
+                <div className="rounded border border-gray-600 bg-[#2b3545] px-3 py-4 text-gray-400">
+                  เลือก main product ก่อน
+                </div>
+              ) : subOptions.length === 0 ? (
+                <div className="rounded border border-gray-600 bg-[#2b3545] px-3 py-4 text-gray-400">
+                  main product นี้ยังไม่มี subproduct
+                </div>
+              ) : (
+                <ul className="max-h-64 overflow-y-auto rounded border border-gray-600 bg-[#2b3545] divide-y divide-gray-600/60">
+                  {subOptions.map((name) => (
+                    <li key={name}>
+                      <label className="flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors hover:bg-gray-700/40">
+                        <input
+                          type="checkbox"
+                          checked={selectedSubs.includes(name)}
+                          onChange={() => toggleSub(name)}
+                        />
+                        <span>{name}</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {mainExists && subOptions.length > 0 && (
+                <p className="mt-2 text-sm text-gray-300">
+                  เลือกแล้ว {selectedSubs.length} จาก {subOptions.length}
+                </p>
+              )}
+              {mainExists && subOptions.length > 0 && selectedSubs.length === subOptions.length && (
+                <p className="mt-1 text-sm text-yellow-300">
+                  เลือกครบทุกตัว &mdash; ลบแล้ว {mainInput} จะเหลือเป็น main product เปล่าๆ
+                  ถ้าอยากลบทิ้งทั้งอันให้เลือกโหมดด้านบน
                 </p>
               )}
             </div>
@@ -217,7 +308,8 @@ function DeleteProductForm() {
             <div className="mb-6 rounded border border-[#f77575]/60 bg-[#f77575]/10 p-4 text-sm">
               <div className="font-semibold text-[#f9b0b0] mb-1">จะลบ:</div>
               <div>{targetLabel}</div>
-              {mode === "main" && (
+              {/* [old] {mode === "main" && ( */}
+              {(mode === "main" || affectedSubs.length > 1) && (
                 <div className="text-gray-300 mt-1">
                   subproduct {affectedSubs.length} ตัว: {affectedSubs.join(", ") || "-"}
                 </div>
