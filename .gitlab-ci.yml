@@ -26,7 +26,7 @@ build:
       fi
     - docker build -t "${IMAGE_NAME}:latest" .
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
 deploy:
   stage: deploy
@@ -48,7 +48,7 @@ deploy:
       -p $EXPOSE_PORT:$PORT
       -d --name "${IMAGE_NAME}" "${IMAGE_NAME}:latest"
   rules:
-    - if: '$CI_COMMIT_BRANCH == "master"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
 
 # sonarqube:
 #   stage: sonarqube_scan
@@ -94,7 +94,7 @@ deploy:
 #       SONAR_OUT_FILE="${SONAR_OUT_FILE:-sonar-summary.json}"
 #       DASHBOARD_API_URL="${DASHBOARD_API_URL:-}"
 #       DASHBOARD_SONAR_PATH="${DASHBOARD_SONAR_PATH:-/api/addsonarqdata}"
-#       SONAR_BRANCH="${SONAR_BRANCH:-${CI_COMMIT_BRANCH:-master}}"
+#       SONAR_BRANCH="${SONAR_BRANCH:-${CI_COMMIT_BRANCH:-main}}"
 
 #       node_json_get() {
 #         # Usage: node_json_get <json> <jsExpr>
