@@ -208,13 +208,6 @@ type DbNameTest = {
   detailfail: DbDetail[];
 };
 
-type DbDocument = {
-  date: string;
-  mainproduct: string;
-  nametest: DbNameTest[];
-  time: string;
-};
-
 function buildDbNametest(parsed: AppiumResult, fallbackSuiteName: string): DbNameTest[] {
   const suiteName = parsed.suiteName || fallbackSuiteName;
   const totalElapsed =

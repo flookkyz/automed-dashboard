@@ -1,7 +1,6 @@
 // Next.js API route support: https://nextjs.org/docs/api-routes/introduction
 import type { NextApiRequest, NextApiResponse } from "next";
 import clientPromise from "../../lib/mongodb";
-import { MongoClient } from "mongodb";
 
 type TestDetail = {
   detail: string;

@@ -23,6 +23,9 @@
 
 # production
 /build
+/public
+/.claude
+/.vscode
 
 # misc
 .DS_Store

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { Doughnut, Bar } from "react-chartjs-2";
+import { Doughnut } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -9,7 +9,6 @@ import {
   Title,
   Tooltip,
   Legend,
-  Colors,
 } from "chart.js";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
@@ -49,18 +48,6 @@ const doughnutOptions = {
   plugins: {
     legend: { display: false },
     title: { display: false },
-  },
-};
-
-const barOptions = {
-  responsive: true,
-  plugins: {
-    legend: { position: "bottom" as const },
-    title: { display: false },
-  },
-  scales: {
-    x: { stacked: true, ticks: { display: false } },
-    y: { stacked: true },
   },
 };
 
@@ -204,27 +191,6 @@ function Dashboard({ mainproduct, subproduct }: DashboardProps) {
       },
     ],
   }), [sum]);
-
-  const barChartData = useMemo(() => ({
-    labels: product?.nametest?.map((data: NameTest) => data.name),
-    datasets: [
-      {
-        label: "Pass",
-        data: product?.nametest?.map((data: NameTest) => data.pass),
-        backgroundColor: "#66c552",
-      },
-      {
-        label: "Fail",
-        data: product?.nametest?.map((data: NameTest) => data.fail),
-        backgroundColor: "#f77575",
-      },
-      {
-        label: "Error",
-        data: product?.nametest?.map((data: NameTest) => data.error),
-        backgroundColor: "#f0f06c",
-      },
-    ],
-  }), [product]);
 
   const isLoading = loadingDates || loadingProduct;
   if (isLoading) {

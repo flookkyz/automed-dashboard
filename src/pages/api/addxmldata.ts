@@ -2,7 +2,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import clientPromise from "../../lib/mongodb";
 import fs from "fs";
-import path from "path";
 import formidable from "formidable";
 import xml2js from "xml2js";
 
