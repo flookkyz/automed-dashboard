@@ -2,6 +2,10 @@ import "../styles/globals.css";
 import type { AppProps } from "next/app";
 import Head from "next/head";
 import NewNavbarpage from "../components/newNavbar";
+import { installMockFetch } from "../mocks";
+
+// Runs before any component mounts, so the first fetch already hits the mock.
+installMockFetch();
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
